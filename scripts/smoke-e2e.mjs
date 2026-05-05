@@ -1,7 +1,6 @@
 // 実装スケルトンの bun dev 動作を Playwright で smoke 検証する。
-// - https://127.0.0.1:5173 にアクセスし、 #game-root に <canvas> が挿入されているか確認
-// - console.info の bootstrap ログから renderer type を取り出す
-// - "Hello マリオピクセル" がページのテキスト/canvas に乗るかを検証 (canvas 内描画はスクリーンショット差分にする)
+// React 統合後 (Step A): #app-root に React がマウントされ、TapToStartGate が表示される。
+// タップ → GameView 内の Canvas が表示され、HUD が出ることを確認。
 
 import { chromium } from 'playwright';
 
@@ -9,54 +8,74 @@ const URL = 'https://127.0.0.1:5173/';
 
 const browser = await chromium.launch({
   args: ['--enable-unsafe-webgpu'],
-  // ヘッドレス Chromium で WebGPU を試行 (失敗時は WebGL2 に fallback)
 });
 try {
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await ctx.newPage();
 
   const consoleMessages = [];
-  page.on('console', (msg) => {
-    consoleMessages.push({ type: msg.type(), text: msg.text() });
-  });
-
-  page.on('pageerror', (err) => {
-    consoleMessages.push({ type: 'pageerror', text: err.message });
-  });
+  page.on('console', (msg) => consoleMessages.push({ type: msg.type(), text: msg.text() }));
+  page.on('pageerror', (err) => consoleMessages.push({ type: 'pageerror', text: err.message }));
 
   await page.goto(URL, { waitUntil: 'networkidle' });
 
-  // canvas が挿入されるまで待つ (最大 5 秒)
-  const canvas = await page.waitForSelector('#game-root canvas', { timeout: 5000 });
-  const canvasInfo = await canvas.evaluate((el) => ({
-    width: el.width,
-    height: el.height,
-    clientWidth: el.clientWidth,
-    clientHeight: el.clientHeight,
-  }));
+  // 初期: TapToStartGate が表示
+  const gate = await page.waitForSelector('button.gate', { timeout: 5000 });
+  const gateText = (await gate.innerText()).trim();
 
-  // bootstrap ログを抽出
-  const bootstrap = consoleMessages.find((m) => m.text.includes('skeleton bootstrap'));
+  // Canvas は背後で初期化済 (Tap-to-Start ゲートの裏で)
+  const canvasBefore = await page.$('.canvas-container > canvas');
+  const hasCanvasBefore = canvasBefore !== null;
 
-  // ページタイトル
-  const title = await page.title();
+  // Tap-to-Start (pointerdown) して playing フェーズへ
+  await gate.dispatchEvent('pointerdown');
 
-  // game-root の box-sizing を CSS で確認 (svh + padding 設計の確認)
-  const rootBoxSizing = await page.$eval('#game-root', (el) => {
-    return window.getComputedStyle(el).boxSizing;
+  // HUD が出る
+  const hud = await page.waitForSelector('.hud', { timeout: 5000 });
+  const hudText = (await hud.innerText()).replace(/\s+/g, ' ').trim();
+
+  // Canvas が依然として残っている (= React 再レンダリングで Canvas が破棄されていない)
+  const canvasAfter = await page.$('.canvas-container > canvas');
+  const canvasInfo = canvasAfter
+    ? await canvasAfter.evaluate((el) => ({
+        width: el.width,
+        height: el.height,
+        clientWidth: el.clientWidth,
+        clientHeight: el.clientHeight,
+      }))
+    : null;
+
+  // gate が消えている
+  const gateGone = (await page.$('button.gate')) === null;
+
+  // touch-action / box-sizing 確認
+  const rootBoxSizing = await page.$eval('#app-root', (el) => window.getComputedStyle(el).boxSizing);
+  const rootTouchAction = await page.$eval('html', (el) => window.getComputedStyle(el).touchAction);
+
+  // FPS が 0 から増えるか (start() が呼ばれて ticker が動いている証拠)
+  await page.waitForTimeout(800);
+  const fpsText = await page.$eval('.hud', (el) => {
+    const m = el.innerText.match(/FPS\s+(\d+)/);
+    return m ? m[1] : null;
   });
 
-  console.log(JSON.stringify({
+  const result = {
     ok: true,
-    title,
+    gateText,
+    hasCanvasBefore,
+    hudText,
     canvas: canvasInfo,
+    gateGone,
     rootBoxSizing,
-    bootstrapLog: bootstrap?.text ?? null,
+    rootTouchAction,
+    fpsTextAfter800ms: fpsText,
     errors: consoleMessages.filter((m) => m.type === 'error' || m.type === 'pageerror'),
-  }, null, 2));
+  };
 
-  await page.screenshot({ path: '/tmp/mario-pixel-skeleton.png', fullPage: false });
-  console.error('[smoke-e2e] screenshot saved to /tmp/mario-pixel-skeleton.png');
+  console.log(JSON.stringify(result, null, 2));
+
+  await page.screenshot({ path: '/tmp/mario-pixel-step-a.png', fullPage: false });
+  console.error('[smoke-e2e] screenshot saved to /tmp/mario-pixel-step-a.png');
 } finally {
   await browser.close();
 }

@@ -63,4 +63,10 @@ export default defineConfig({
     target: 'es2022',
     sourcemap: true,
   },
+  // React 19 は ESM だが、依存パッケージ (zustand 等) が CJS 経由で require する場合に
+  // 二重実体化することがある (Invalid hook call)。React/ReactDOM/Zustand を pre-bundle で
+  // 統一し、CJS interop による別インスタンス化を防ぐ。
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-dom/client', 'zustand'],
+  },
 });
