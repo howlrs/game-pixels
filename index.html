@@ -175,7 +175,11 @@
       .settings-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.75);
+        /* β4.0-α: 0.75 だと HUD/盤面が透過しすぎて Modal の境界が曖昧。0.92 + 軽い backdrop-filter で
+           背景を確実に隠す (Safari/Chrome 共通サポート) */
+        background: rgba(0, 0, 0, 0.92);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -284,6 +288,60 @@
         min-width: 100px;
       }
       .settings-footer button.primary:hover { background: #ffd633; }
+      /* β4.0-α: Help Modal の専用スタイル (settings-modal を継承し、ヘルプ行のレイアウトのみ追加) */
+      .help-modal .help-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .help-row {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        padding: 6px 0;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .help-keys {
+        flex-shrink: 0;
+        min-width: 130px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      .help-key-chip {
+        display: inline-flex;
+        align-items: center;
+        background: #2a2a2a;
+        color: #ffcc00;
+        border: 1px solid #555;
+        border-radius: 4px;
+        padding: 2px 8px;
+        font-family: monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        box-shadow: 0 1px 0 #000;
+      }
+      .help-key-sep {
+        color: #888;
+        margin: 0 2px;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        font-family: inherit;
+      }
+      .help-desc {
+        color: #ccc;
+        font-size: 13px;
+      }
+      @media (max-width: 480px) {
+        .help-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+        .help-keys { min-width: 0; }
+        .help-key-chip { font-size: 11px; padding: 2px 6px; }
+        .help-desc { font-size: 12px; }
+      }
       /* β3.0-β: ユーザー設定 (a11y.reduceMotion) でアニメ無効化を可能に。
          body[data-reduce-motion="true"] は SettingsModal のチェックで即時付与される。
          OS の prefers-reduced-motion とは独立に効く。 */

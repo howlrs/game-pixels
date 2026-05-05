@@ -10,12 +10,14 @@
 // β2.0-β: 音響ミュート切替ボタン (muted は Zustand 駆動 / Settings Modal 等とも共有可能)
 // β2.0-δ: 「⚙ 設定」ボタンを追加し SettingsModal を開く
 // β3.0-γ: TIME の隣に進捗% (PROGRESS xx%) を表示
-// 並び順: TIME / PROGRESS / 🔊 ミュート / ⚙ 設定 / リセット
+// β4.0-α: 「?」ヘルプボタン + グローバル ? キーで HelpModal 開閉
+// 並び順: TIME / PROGRESS / 🔊 ミュート / ? ヘルプ / ⚙ 設定 / リセット
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { computeProgress } from '@core/index.ts';
 import { useAudio } from '@audio/index.ts';
 import { useGame } from '@game/index.ts';
+import { HelpModal } from './HelpModal.tsx';
 import { SettingsModal } from './SettingsModal.tsx';
 
 function formatTime(ms: number): string {
@@ -32,6 +34,7 @@ export function Hud() {
   const board = useGame((s) => s.board);
   const reset = useGame((s) => s.resetBoard);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   // β2.0-β: ミュート状態は Zustand 経由 (Settings Modal とも同期可能)
   const muted = useAudio((s) => s.muted);
   const toggleMuted = useAudio((s) => s.toggleMuted);
@@ -41,6 +44,24 @@ export function Hud() {
     if (!puzzle) return 0;
     return Math.round(computeProgress(board, puzzle.solution).ratio * 100);
   }, [board, puzzle]);
+
+  // β4.0-α: グローバル ? キーで HelpModal toggle
+  // INPUT/TEXTAREA/SELECT/contentEditable focus 中は無視 (Gemini 指摘 2)
+  // SettingsModal が開いている時は無視 (Modal 競合排他制御 / Gemini 指摘 1)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '?') return;
+      if (settingsOpen) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (target?.isContentEditable) return;
+      e.preventDefault();
+      setHelpOpen((cur) => !cur);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [settingsOpen]);
 
   // Round 7-B: cleared 中は HUD を非表示にして ClearBanner / セル回転アニメに集中させる
   if (phase === 'tap-to-start' || phase === 'puzzle-select' || phase === 'cleared') return null;
@@ -79,7 +100,25 @@ export function Hud() {
         </button>
         <button
           type="button"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => {
+            // Modal 競合排他: 設定モーダル開いている時はヘルプを開かない
+            if (settingsOpen) return;
+            setHelpOpen(true);
+          }}
+          className="hud-icon-btn"
+          aria-label="ヘルプを開く"
+          aria-haspopup="dialog"
+          aria-expanded={helpOpen}
+          title="ヘルプ (? キー)"
+        >
+          <span aria-hidden="true">?</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (helpOpen) return;
+            setSettingsOpen(true);
+          }}
           className="hud-icon-btn"
           aria-label="設定を開く"
           aria-haspopup="dialog"
@@ -100,6 +139,7 @@ export function Hud() {
         </button>
       </div>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

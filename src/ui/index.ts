@@ -9,3 +9,4 @@ export { ResultsPage } from './ResultsPage.tsx';
 export { TapToStartGate } from './TapToStartGate.tsx';
 export { ClearBanner } from './ClearBanner.tsx';
 export { SettingsModal } from './SettingsModal.tsx';
+export { HelpModal } from './HelpModal.tsx';
