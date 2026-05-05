@@ -49,6 +49,8 @@ const SHORTCUT_GROUPS: { title: string; rows: ShortcutRow[] }[] = [
     rows: [
       { keys: ['タップ'], description: '現在のモードに応じて塗/×/消' },
       { keys: ['長押し+ドラッグ'], description: 'ドラッグ起点と同じ状態のセルだけ操作' },
+      { keys: ['2本指 ピンチ'], description: 'ズーム (盤面拡大/縮小)' },
+      { keys: ['2本指 ドラッグ'], description: '盤面をパン (移動)' },
     ],
   },
   {
@@ -59,11 +61,23 @@ const SHORTCUT_GROUPS: { title: string; rows: ShortcutRow[] }[] = [
     ],
   },
   {
+    title: 'ズーム / パン',
+    rows: [
+      { keys: ['+ ボタン'], description: 'ズームイン (×1.25)' },
+      { keys: ['− ボタン'], description: 'ズームアウト (÷1.25)' },
+      { keys: ['⤢ ボタン'], description: 'ズーム+パンを初期に戻す' },
+      { keys: ['ホイール'], description: 'カーソル位置中心にズーム' },
+      { keys: ['Trackpad ピンチ'], description: 'カーソル位置中心にズーム' },
+      { keys: ['Trackpad 2本指 swipe'], description: '盤面をパン (移動)' },
+    ],
+  },
+  {
     title: 'メニュー操作',
     rows: [
       { keys: ['⏸ ボタン'], description: '一時停止 (HUD 右上)' },
       { keys: ['⚙ ボタン'], description: '設定モーダルを開く' },
       { keys: ['↶ ↷ ボタン'], description: '元に戻す / やり直す' },
+      { keys: ['+ − ⤢ ボタン'], description: 'ズーム / リセット' },
       { keys: ['🔊 ボタン'], description: '音響オン/オフ' },
     ],
   },
