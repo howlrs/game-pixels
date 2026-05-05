@@ -40,6 +40,50 @@ bun scripts/validate-puzzle.mjs public/puzzles/5x5/heart.json
 # 失敗があれば exit code 1 (CI バリデーション用)
 ```
 
+## 画像→パズル CLI (β9.0-α 以降)
+
+`image-to-puzzle.mjs` は以下の入力形式をサポート:
+
+| 拡張子 | 形式 | 用途 |
+|-------|------|------|
+| `.json` | 2D `0/1` 配列 (`{ "solution": [[0,1,...], ...] }`) | 既存セーブ形式の変換 |
+| `.grid` / `.txt` | ASCII art (`#` = 塗、`.` = 空) | 手描きで素早く設計 |
+| `.png` / `.jpg` / `.jpeg` / `.webp` | 画像 (sharp で grayscale → 2 値化) | 既存画像から自動生成 |
+
+### 使い方
+
+```bash
+# 画像ファイルからパズル生成 (10x10)
+bun scripts/image-to-puzzle.mjs path/to/image.png \
+  --id my-cat --title 'うちのねこ' --width 10 --height 10 \
+  --category 10x10 --difficulty medium --description '猫の写真から' \
+  --out tools/puzzle-specs/sample/my-cat.json
+```
+
+### 画像入力時のパイプライン
+
+1. **デコード**: `sharp(buf).grayscale().raw()` で 0..255 の輝度配列に変換
+2. **2 値化**: 平均輝度をしきい値とし、**暗い (低輝度) 部分を塗 (1)** に変換
+3. **リサイズ**: ブロック平均で `--width × --height` のターゲットサイズに縮小
+4. **tryAutoFix**: QA で multiple → 差分セルを 1 つ flip → 再 QA (最大 8 回)
+5. **QA 通過チェック**: 一意性 + 論理可解性 + 可視性 + 対称性
+
+### 安全策
+
+- 入力サイズ ≤ 2 MB
+- 画像解像度 ≤ 1024 × 1024
+- 1 行 ≤ 8 KB (ASCII art)
+- `--out` は **project root 配下のみ許可** (パストラバーサル防止)
+- `--width / --height` は 3..50 整数
+
+### サンプル
+
+```bash
+# 円 (15x15) と矢印 (10x10) のサンプルを生成
+bun scripts/sample-image-puzzles.mjs
+# → tools/puzzle-specs/sample/{circle-15,arrow-10}.{png,json}
+```
+
 ## アルゴリズム要点
 
 ### Line Solver (`solveLine`)
