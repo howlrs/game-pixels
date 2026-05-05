@@ -1,7 +1,7 @@
-// docs §11.2 / §14.1 / §14.3 / §14.2.1: Pixi.js v8 を WebGPU 既定で初期化、
-// bitECS world と固定タイムステップループ (§94.3) を組み込む。
-// Step B 段階では「落下する 2 個のボックス」で世界 + ループ + 描画同期の動作を確認する。
-// 実衝突 / 入力 / プレイヤー / ステージは Step C 以降。
+// docs §11.2 / §14.1 / §14.3 / §14.2.1 / §20.2 / §90:
+// Pixi.js v8 + bitECS world + 固定タイムステップループ + プレイヤー物理 + 入力スナップショット の統合。
+// Step C: 1 体のプレイヤーを Keyboard で操作 (左右 + ジャンプ)、画面下部の床で着地、可変ジャンプ高、Coyote/JumpBuffer。
+// 実タイル衝突 (X 軸 / 任意床) は Step D で実装。
 
 import { addComponents, addEntity, deleteWorld, query, type World } from 'bitecs';
 import { Application, Graphics, Sprite as PixiSprite, type Texture } from 'pixi.js';
@@ -16,6 +16,9 @@ import {
   type GameWorld,
 } from '@core/world.ts';
 import { PHYSICS_DT_MS, createFixedStepLoop } from '@core/loop.ts';
+import { createInputBuffer } from '@core/input/buffer.ts';
+import { createPlayerState, stepPlayerPhysics } from '@core/physics/player.ts';
+import { attachKeyboard } from '@input/keyboard.ts';
 import { physicsSystem, renderSyncSystem, type SpriteRegistry } from '@game/index.ts';
 
 const INTERNAL_W = 480;
@@ -47,9 +50,33 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
   // 動的生成したテクスチャは destroy 時に明示解放する (Step B / Gemini Pro 指摘 = Pixi.js のメモリリーク防止)。
   const ownedTextures: Texture[] = [];
 
-  // 「落下する 2 個のボックス」を生成
-  spawnBox(app, world, sprites, ownedTextures, INTERNAL_W * SUB * 0.3, INTERNAL_H * SUB * 0.2, 0xff5577, 12);
-  spawnBox(app, world, sprites, ownedTextures, INTERNAL_W * SUB * 0.7, INTERNAL_H * SUB * 0.1, 0x55ff77, 16);
+  // 入力バッファ (Keyboard)
+  const inputBuffer = createInputBuffer();
+  const detachKeyboard = attachKeyboard(inputBuffer);
+
+  // プレイヤー entity と物理状態
+  const playerSize = 16; // px
+  const halfPlayerSub = (playerSize / 2) * SUB;
+  const groundY = (INTERNAL_H - 16) * SUB; // 床: 画面下端から 16px 上 (subpixel)
+  const stageBounds = {
+    minX: halfPlayerSub,
+    maxX: INTERNAL_W * SUB - halfPlayerSub,
+  };
+  const playerState = createPlayerState((INTERNAL_W * SUB) / 2, groundY);
+  const playerEid = spawnBox(
+    app,
+    world,
+    sprites,
+    ownedTextures,
+    playerState.x,
+    playerState.y,
+    0x55aaff,
+    playerSize,
+  );
+
+  // 床 (見せかけのライン)。本格的なタイルは Step D。
+  const floor = new Graphics().rect(0, INTERNAL_H - 1, INTERNAL_W, 1).fill(0x88aacc);
+  app.stage.addChild(floor);
 
   // レンダラ種別を HUD に流す
   const rendererType = (app.renderer as { type: number; name?: string }).name ?? `type:${app.renderer.type}`;
@@ -65,9 +92,18 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
   // 固定タイムステップループ (§94.3): 物理 60Hz / 描画 rAF
   const fixedLoop = createFixedStepLoop({
     physicsStep: () => {
+      // Step C: 物理 frame 開始時に入力スナップショットを確定 (§9.3 / §14.4)
+      inputBuffer.beginFrame();
+      const snap = inputBuffer.snapshot();
+      const running = snap.run === 'pressed' || snap.run === 'held';
+      stepPlayerPhysics(playerState, snap, groundY, running, stageBounds);
+      // bitECS の Position/Velocity に同期 (描画用)
+      Position.x[playerEid] = playerState.x;
+      Position.y[playerEid] = playerState.y;
+      Velocity.x[playerEid] = playerState.vx;
+      Velocity.y[playerEid] = playerState.vy;
+      // 他の entity (現状なし) を物理 system で進める
       physicsSystem(world);
-      // ステップ B: 床 (画面下端) で跳ね返す簡易処理。Step C で実 AABB に置換。
-      bounceAtFloor(world);
     },
     render: (_alpha) => {
       renderSyncSystem(world, sprites, app.stage, 0, 0, 1);
@@ -112,6 +148,7 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
     destroy: () => {
       started = false;
       app.ticker.remove(onTick);
+      detachKeyboard();
       sprites.clear();
       // Step B / Gemini Pro 指摘: 生成テクスチャと bitECS world を明示解放してメモリリークを防ぐ。
       // app.destroy はテクスチャを自動解放しないため、generateTexture したものは自前で destroy する。
@@ -133,14 +170,14 @@ function spawnBox(
   ySub: number,
   color: number,
   size: number,
-): void {
+): number {
   const eid = addEntity(world);
   // bitECS 0.4.0 の addComponents は (world, eid, ...components) 形式
   addComponents(world, eid, Position, Velocity, AABB, SpriteComp);
   Position.x[eid] = xSub | 0;
   Position.y[eid] = ySub | 0;
   Velocity.x[eid] = 0;
-  Velocity.y[eid] = 8; // subpixel/frame の下向き速度 (簡易重力なしで等速落下、Step C で実装)
+  Velocity.y[eid] = 0;
   AABB.halfW[eid] = (size / 2) | 0;
   AABB.halfH[eid] = (size / 2) | 0;
   SpriteComp.id[eid] = 1;
@@ -154,25 +191,7 @@ function spawnBox(
   sprite.anchor.set(0.5);
   app.stage.addChild(sprite);
   sprites.set(eid, sprite);
-}
-
-function bounceAtFloor(world: GameWorld): void {
-  // 画面下端 (Y = INTERNAL_H px = INTERNAL_H * 16 subpixel) で跳ね返す簡易処理。Step C で実 AABB に置換。
-  // Step B / Gemini Pro 指摘: query で entity 列挙 (eid 直指定の hack を排除)
-  const floorSub = (INTERNAL_H - 8) * SUB; // 中心が床から 8px 上で反射
-  const ceilSub = 8 * SUB;
-  const ents = query(world, [Position, Velocity]);
-  for (let i = 0; i < ents.length; i++) {
-    const eid = ents[i]!;
-    const y = Position.y[eid]!;
-    if (y >= floorSub) {
-      Position.y[eid] = floorSub;
-      Velocity.y[eid] = -Math.abs(Velocity.y[eid]!);
-    } else if (y <= ceilSub) {
-      Position.y[eid] = ceilSub;
-      Velocity.y[eid] = Math.abs(Velocity.y[eid]!);
-    }
-  }
+  return eid;
 }
 
 // PHYSICS_DT_MS は他モジュールでの参考用に再 export
