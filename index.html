@@ -64,33 +64,69 @@
         object-fit: contain;
       }
       /* HUD と Tap-to-Start の最小スタイル */
+      /* β2.0-α: HUD を上部全幅 fixed bar から、タイトル=左上 / TIME+リセット=右上 の 2 ブロックに分離。
+         中央上部を空け、25x25 など列ヒント長が大きい盤面と衝突しないようにする。
+         .hud 自身は display:contents でレイアウトに参加しない (子要素のみ position:fixed)。
+         (β2.0-α / Gemini Pro レビュー指摘 1: position 等は display:contents で無視されるため削除) */
       .hud {
+        display: contents;
+      }
+      .hud-title {
         position: fixed;
-        top: var(--safe-top);
-        left: var(--safe-left);
-        right: var(--safe-right);
-        padding: 8px 12px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        top: max(8px, var(--safe-top, 0px));
+        left: max(12px, var(--safe-left, 0px));
+        padding: 4px 10px;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 999px;
         font-family: monospace;
-        font-size: 14px;
+        font-size: 13px;
         color: #fff;
-        text-shadow: 1px 1px 0 #000;
-        gap: 12px;
-        z-index: 10;
+        z-index: 11;
+        max-width: 35vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .hud-stats {
+        position: fixed;
+        top: max(8px, var(--safe-top, 0px));
+        right: max(12px, var(--safe-right, 0px));
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 10px;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 999px;
+        font-family: monospace;
+        font-size: 13px;
+        color: #fff;
+        z-index: 11;
+      }
+      .hud-stats .hud-time {
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.5px;
       }
       .hud-reset {
         background: #333;
         color: #fff;
         border: 1px solid #666;
-        padding: 4px 12px;
+        padding: 6px 12px;
         font: inherit;
+        font-size: 12px;
         cursor: pointer;
-        min-height: 32px;
+        /* β2.0-α / Gemini Pro 指摘 3: タップ領域は 44px 以上を確保 (見た目はコンパクト保持) */
+        min-height: 44px;
+        min-width: 44px;
         border-radius: 4px;
+        /* 視覚的な高さは padding で調節、margin マイナスで実領域は確保したまま見た目を絞る場合は親側で調整 */
       }
       .hud-reset:hover { background: #444; }
+      @media (max-width: 480px) {
+        /* モバイル: タイトル幅は 50vw まで広げて省略を緩和 (Gemini 指摘 3) */
+        .hud-title { max-width: 50vw; font-size: 11px; padding: 4px 10px; }
+        .hud-stats { font-size: 11px; padding: 4px 10px; gap: 8px; }
+        .hud-reset { font-size: 11px; padding: 6px 10px; min-height: 44px; min-width: 44px; }
+      }
       .gate {
         position: fixed;
         inset: 0;
