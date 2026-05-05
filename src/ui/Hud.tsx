@@ -7,9 +7,12 @@
 // - タイマー部分は aria-hidden でスクリーンリーダーから完全に除外
 // - クリア通知 (ClearBanner / ResultsPage) 側に aria-live を適切に持たせる方針
 //
+// β2.0-β: 音響ミュート切替ボタン (muted は Zustand 駆動 / Settings Modal 等とも共有可能)
 // β2.0-δ: 「⚙ 設定」ボタンを追加し SettingsModal を開く
+// 並び順: TIME / 🔊 ミュート / ⚙ 設定 / リセット
 
 import { useState } from 'react';
+import { useAudio } from '@audio/index.ts';
 import { useGame } from '@game/index.ts';
 import { SettingsModal } from './SettingsModal.tsx';
 
@@ -26,11 +29,11 @@ export function Hud() {
   const puzzle = useGame((s) => s.currentPuzzle);
   const reset = useGame((s) => s.resetBoard);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // β2.0-β: ミュート状態は Zustand 経由 (Settings Modal とも同期可能)
+  const muted = useAudio((s) => s.muted);
+  const toggleMuted = useAudio((s) => s.toggleMuted);
 
   // Round 7-B: cleared 中は HUD を非表示にして ClearBanner / セル回転アニメに集中させる
-  // β2.0-δ: SettingsModal は HUD と同じ条件で出すため、HUD return null と一緒に消える
-  //         (もし modal 開きっぱなしで cleared 突入したら強制 close する選択肢もあるが、
-  //          典型は modal 開いたまま塗らないので問題なし)
   if (phase === 'tap-to-start' || phase === 'puzzle-select' || phase === 'cleared') return null;
 
   return (
@@ -45,6 +48,16 @@ export function Hud() {
         <span className="hud-time" aria-hidden="true">
           TIME {formatTime(elapsed)}
         </span>
+        <button
+          type="button"
+          onClick={toggleMuted}
+          className="hud-mute"
+          aria-label="ミュート切替"
+          aria-pressed={muted}
+          title={muted ? '音をオン' : '音をミュート'}
+        >
+          <span aria-hidden="true">{muted ? '🔇' : '🔊'}</span>
+        </button>
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}

@@ -134,8 +134,9 @@
         /* 視覚的な高さは padding で調節、margin マイナスで実領域は確保したまま見た目を絞る場合は親側で調整 */
       }
       .hud-reset:hover { background: #444; }
-      /* β2.0-δ: HUD アイコンボタン (歯車設定など) */
-      .hud-icon-btn {
+      /* β2.0-β/δ: HUD アイコンボタン (ミュート / 設定など共通スタイル) */
+      .hud-icon-btn,
+      .hud-mute {
         background: transparent;
         color: #fff;
         border: 1px solid transparent;
@@ -149,9 +150,13 @@
         line-height: 1;
         transition: background 0.15s, border-color 0.15s;
       }
-      .hud-icon-btn:hover {
+      .hud-icon-btn:hover,
+      .hud-mute:hover {
         background: rgba(255, 255, 255, 0.08);
         border-color: rgba(255, 255, 255, 0.2);
+      }
+      .hud-mute[aria-pressed='true'] {
+        opacity: 0.6;
       }
       /* β2.0-δ: 設定モーダル */
       .settings-overlay {

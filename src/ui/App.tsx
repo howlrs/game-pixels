@@ -15,10 +15,11 @@
 // 旧 ClearOverlay (1.5 秒タイマー) は廃止 (アニメ自体が祝福演出を兼ねる)。
 // 控えめな祝福バナー (ClearBanner) を盤面上部に表示してメッセージ性を残す。
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { mountVisibilityHandler } from '@platform/visibility.ts';
 import { isStandalone, mountInstallPromptCapture } from '@platform/install.ts';
-import { mountAutoSave, recordClear } from '@save/index.ts';
+import { mountAutoSave, recordClear, getSavedData } from '@save/index.ts';
+import { mountAudio, setVolume } from '@audio/index.ts';
 import { useGame } from '@game/index.ts';
 import type { GameHandle } from '@render/index.ts';
 import { ClearBanner } from './ClearBanner.tsx';
@@ -55,7 +56,19 @@ export function App() {
 
   // Round 6 / Gemini Pro 指摘: autosave 結合 (LocalStorage への debounced save + visibilitychange flush)
   useEffect(() => {
-    return mountAutoSave();
+    const detachSave = mountAutoSave();
+    // β2.0-β: UserSettings.audio から音量を反映 + audio store mount
+    // optional chain で migration 漏れに耐性 (Gemini 指摘 6)
+    const audio = getSavedData()?.settings?.audio;
+    setVolume({
+      master: audio?.master ?? 0.7,
+      se: audio?.se ?? 0.7,
+    });
+    const detachAudio = mountAudio();
+    return () => {
+      detachSave();
+      detachAudio();
+    };
   }, []);
 
   // クリア時にベストタイム記録 + セル回転アニメ発火 → 完了で results 遷移
