@@ -39,3 +39,5 @@ export {
   loadAndMigrate,
 } from './save.ts';
 export type { ActivePuzzleSave, PuzzleClearRecord, SaveBackend, SaveData, UserSettings } from './save.ts';
+
+export { formatTime } from './format.ts';

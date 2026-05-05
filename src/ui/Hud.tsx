@@ -15,18 +15,11 @@
 // 並び順: TIME / PROGRESS / ↶ / ↷ / 🔊 ミュート / ? ヘルプ / ⚙ 設定 / リセット
 
 import { useEffect, useMemo, useState } from 'react';
-import { computeProgress } from '@core/index.ts';
+import { computeProgress, formatTime } from '@core/index.ts';
 import { useAudio } from '@audio/index.ts';
 import { useGame } from '@game/index.ts';
 import { HelpModal } from './HelpModal.tsx';
 import { SettingsModal } from './SettingsModal.tsx';
-
-function formatTime(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  const mm = Math.floor(totalSec / 60).toString().padStart(2, '0');
-  const ss = (totalSec % 60).toString().padStart(2, '0');
-  return `${mm}:${ss}`;
-}
 
 export function Hud() {
   const phase = useGame((s) => s.phase);

@@ -4,19 +4,12 @@
 // ResultsPage と同じ getSavedData().clearRecords を参照する DRY 設計。
 
 import { useEffect, useMemo, useState } from 'react';
-import { loadPuzzle, loadPuzzleIndex, type PuzzleIndex, type PuzzleMeta } from '@core/index.ts';
+import { formatTime, loadPuzzle, loadPuzzleIndex, type PuzzleIndex, type PuzzleMeta } from '@core/index.ts';
 import { useGame } from '@game/index.ts';
 import { getSavedData } from '@save/index.ts';
 
 interface Props {
   onLoaded: () => void;
-}
-
-function formatTime(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  const mm = Math.floor(totalSec / 60).toString().padStart(2, '0');
-  const ss = (totalSec % 60).toString().padStart(2, '0');
-  return `${mm}:${ss}`;
 }
 
 export function PuzzleSelect({ onLoaded }: Props) {
