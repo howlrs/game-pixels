@@ -1,8 +1,22 @@
 # mario-pixel (game-pixels)
 
-マリオ系ピクセルアート 2D サイドスクロール プラットフォーマー (コード名: **マリオピクセル**) の Web アプリ事前調査。
+マリオ系ピクセルアート 2D サイドスクロール プラットフォーマー (コード名: **マリオピクセル**) の Web アプリ。
 
-ゲームロジック仕様書は [`docs/`](docs/00_index.md) にまとめている。本リポジトリはこの仕様を元に Web 実装 (PC/スマホ クロスデバイス) へ進める前段階の資料群である。
+- 仕様書: [`docs/`](docs/00_index.md) (Round 2/3 完了)
+- デプロイ手順: [`docs/CLOUDFLARE_DEPLOY.md`](docs/CLOUDFLARE_DEPLOY.md)
+- Live demo: (Cloudflare Pages デプロイ後に更新)
+
+## クイックスタート (ローカル開発)
+
+```bash
+bun install
+bun run dev      # https://127.0.0.1:5173 (自己署名証明書、Gamepad API 用 secure context)
+bun test         # 単体テスト
+bun run build    # production build (dist/)
+bun run preview  # production build を local で配信 (https://127.0.0.1:4173)
+```
+
+詳細は [`docs/94_architecture.md`](docs/94_architecture.md) §14.9 ビルドとバンドル。
 
 ## ハイライト
 
@@ -30,14 +44,16 @@
 |---|---|
 | `v0.1.0-draft` | 初稿 (Gemini レビュー前) |
 | `v0.2.0-docs-round1` | Gemini Pro Round1 レビュー反映済み (Issue #1/#2/#3, PR #4/#5/#6) |
-| `v0.3.0-docs-round2` | Round 2 / T1 (Issue #11, PR #17) + T5 (Issue #10) 反映予定 — WebGPU 既定 / bitECS / ハイブリッド状態管理 / Valibot / Vite 6 系 / dvh-svh / PWA 範囲縮小 / 確定スタック表 |
+| `v0.3.0-docs-round2` | Round 2 (T1/T5) + Round 3 反映 — WebGPU 既定 / bitECS / ハイブリッド状態管理 / Valibot / Vite 6 系 / dvh-svh 統一 / PWA 範囲縮小 / クロスデバイス罠カタログ / Cloudflare デプロイターゲット (PR #17/#19/#20) |
+| `v0.4.0-skeleton` | 実装スケルトン構築 — Vite + Pixi.js v8 + bun test + Playwright smoke で「Hello マリオピクセル」(PR #21) |
+| (タグ未付与) | Round 4 = MVP α 進行中 — Step A〜F: React 統合 + bitECS world + プレイヤー物理 + ステージロード + PWA + Cloudflare CI/CD (PR #22-#27 予定) |
 
 ## 依存パッケージ運用ポリシー
 
 実装着手以降、本リポジトリの依存パッケージは以下のポリシーで管理する (詳細は [`docs/94_architecture.md`](docs/94_architecture.md) §14.14):
 
 - **絶対バージョン指定**: `package.json` のすべての依存に絶対バージョンを記載 (例: `"react": "19.0.0"`)。caret `^` / tilde `~` は **禁止**。
-- **ロックファイル**: `bun.lockb` を Git 管理する。
+- **ロックファイル**: `bun.lock` (Bun 1.3+ の text 形式) を Git 管理する。
 - **依存追加**: `bun add <pkg>@<version>` で常に絶対指定する。
 - **更新運用**: Renovate で自動 PR を発行 (パッチ即時/週次自動マージ、マイナー月次、メジャー手動)。
 - **CI 必須通過**: E2E (Playwright) と `bun test` が両方通ったときのみ Renovate PR の自動マージを許可する。
