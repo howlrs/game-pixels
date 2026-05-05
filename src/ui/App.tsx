@@ -29,6 +29,7 @@ import { Hud } from './Hud.tsx';
 import { ModeButtons } from './ModeButtons.tsx';
 import { PuzzleSelect } from './PuzzleSelect.tsx';
 import { ResultsPage } from './ResultsPage.tsx';
+import { ResumeGate } from './ResumeGate.tsx';
 import { TapToStartGate } from './TapToStartGate.tsx';
 
 export function App() {
@@ -126,6 +127,7 @@ export function App() {
       </div>
       {phase === 'tap-to-start' ? <TapToStartGate onStart={handleStart} /> : null}
       {phase === 'puzzle-select' ? <PuzzleSelect onLoaded={handlePuzzleLoaded} /> : null}
+      {phase === 'paused' ? <ResumeGate /> : null}
       {phase === 'cleared' ? <ClearBanner /> : null}
       {phase === 'results' ? (
         <ResultsPage
