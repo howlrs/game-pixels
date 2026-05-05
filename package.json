@@ -20,7 +20,8 @@
     "test:qa": "bun test src/qa/",
     "validate-puzzles": "bun scripts/validate-puzzle.mjs",
     "build-puzzles": "bun scripts/build-puzzles.mjs",
-    "build-index": "bun scripts/build-index.mjs"
+    "build-index": "bun scripts/build-index.mjs",
+    "deploy": "bun run build && wrangler pages deploy dist --project-name=pixels --branch=main"
   },
   "dependencies": {
     "bitecs": "0.4.0",

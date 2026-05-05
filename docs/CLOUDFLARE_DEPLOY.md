@@ -108,49 +108,55 @@ v1.1 でクラウドセーブ等を導入する場合 (docs §14.15.2):
 
 実装着手時に Firebase Auth を導入したらまず実機で popup ログインを試し、ブロックされたら 1 → 3 の順で対応する。本ドキュメントを更新すること。
 
-## 6. GitHub Actions 自動デプロイ (main push で自動)
+## 6. デプロイ運用 (ローカル wrangler 直接、hyakunin-isshu と同方針)
 
-`.github/workflows/deploy.yml` が main push と workflow_dispatch で実行される。
-Cloudflare Pages の Git 連携は使わず、wrangler-action で `dist/` を直接アップロードする方式。
+GitHub Actions による自動デプロイは採用しない (`CLOUDFLARE_API_TOKEN` を Secrets に置く管理コストを避ける)。
+姉妹プロジェクト hyakunin-isshu と同じく、ローカル開発者がコマンド一発でデプロイする方式。
 
-### 6.1 セットアップ (初回のみ)
+### 6.1 前提
 
-#### 6.1.1 Cloudflare API token 作成
-
-1. https://dash.cloudflare.com/profile/api-tokens → **Create Token**
-2. テンプレート **"Edit Cloudflare Workers"** を選択 (Pages にも対応)
-3. 権限:
-   - Account → Cloudflare Pages: **Edit**
-   - Account → Workers Scripts: **Edit**
-   - User → User Details: **Read**
-4. Account Resources: **Include → Specific account → Sharebook.amazon@gmail.com's Account** (限定推奨)
-5. **Continue to summary** → **Create Token** → **コピー** (再表示不可)
-
-#### 6.1.2 GitHub Secrets 登録
-
-`howlrs/game-pixels` リポジトリ → Settings → Secrets and variables → Actions → **New repository secret**
-
-| Secret | Value |
-|--------|-------|
-| `CLOUDFLARE_API_TOKEN` | (上で作成した token) |
-| `CLOUDFLARE_ACCOUNT_ID` | `254b3b3ca78079b35c897126142754f5` |
-
-### 6.2 動作
-
-- main への push → CI (build-test + validate-puzzles) 通過後に自動デプロイ
-- Actions タブで **Deploy to Cloudflare Pages** ワークフローを手動実行 (workflow_dispatch) も可能
-- デプロイ完了後、`https://pixels.howlrs.net/` に反映 (~30 秒)
-
-### 6.3 ローカルから手動デプロイ (緊急時)
+開発者ローカルで Wrangler に OAuth 認証済 (`wrangler whoami` で確認):
 
 ```bash
-bun run build
-wrangler pages deploy dist --project-name=pixels --branch=main
+wrangler login           # 初回のみ。OAuth でブラウザ認証
+wrangler whoami          # token と権限の確認
 ```
+
+OAuth スコープに `pages (write)` が含まれていれば OK (本作業環境では既に取得済)。
+
+### 6.2 デプロイコマンド
+
+```bash
+bun run deploy
+# = bun run build && wrangler pages deploy dist --project-name=pixels --branch=main
+```
+
+`bun run build` は内部で:
+1. `tsc --noEmit` (typecheck)
+2. `vite build` (SPA bundle)
+3. `bun run build:ssg` (OG image / 静的 HTML 27 ページ / sitemap.xml / robots.txt)
+
+を順に実行。デプロイは `dist/` を Cloudflare Pages に直接アップロード (~10 秒)。
+
+### 6.3 動作確認
+
+```bash
+curl -sI https://pixels.howlrs.net/                     # HTTP 200
+curl -sI https://pixels.howlrs.net/puzzles/15x15/rabbit/ # HTTP 200
+curl -sI https://pixels.howlrs.net/og/15x15/rabbit.png   # HTTP 200
+curl -sI https://pixels.howlrs.net/sitemap.xml           # HTTP 200
+```
+
+### 6.4 何故 GitHub Actions にしないか
+
+- API Token を GitHub Secrets で管理する必要がない (rotate / 漏洩リスク回避)
+- ビルドエラーが出た時に CI ログ確認が不要 (ローカルですぐ stack trace を見られる)
+- デプロイは「ユーザーが意図的に実行」するイベントなので、main push と疎結合の方が事故が起きにくい
+- hyakunin-isshu と運用統一 (オペレータの脳内モデルを揃える)
 
 ## 7. トラブルシュート
 
-- **GitHub Actions の wrangler-action が 401** → `CLOUDFLARE_API_TOKEN` のスコープ不足。`Cloudflare Pages: Edit` を必ず付与
+- **wrangler が 401** → `wrangler login` で OAuth 再認証。または `wrangler whoami` で `pages (write)` スコープを確認
 - **ビルドが Node.js を使ってしまう** → `BUN_VERSION` 環境変数が未設定。Production / Preview の両方を確認
 - **WebGPU が動かない** → `Cross-Origin-Embedder-Policy` が `require-corp` でないと WebGPU が一部機能制限を受ける。`_headers` を確認
 - **SW が更新されない** → `sw.js` の Cache-Control が長期キャッシュになっていないか確認 (`_headers` で `must-revalidate` 強制)
