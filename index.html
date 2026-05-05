@@ -757,6 +757,89 @@
         .clear-banner { animation: none; }
       }
       body[data-reduce-motion='true'] .clear-banner { animation: none; }
+      /* β4.0-β: ハイコントラストモード — body[data-high-contrast="true"] が付くと
+         背景は黒、文字は白、アクセントは濃い黄/緑/赤に切替。
+         WCAG コントラスト比 7:1 (AAA) を狙う。Pixi.js 盤面側は grid.ts の getPalette() で別途切替 */
+      body[data-high-contrast='true'] {
+        background: #000;
+      }
+      body[data-high-contrast='true'] .puzzle-select {
+        background: #000;
+        color: #fff;
+      }
+      body[data-high-contrast='true'] .puzzle-select h1,
+      body[data-high-contrast='true'] .puzzle-select h2 {
+        color: #ffee00;
+      }
+      body[data-high-contrast='true'] .puzzle-select button {
+        background: #000;
+        color: #fff;
+        border: 2px solid #fff;
+      }
+      body[data-high-contrast='true'] .puzzle-select button:hover {
+        background: #222;
+        border-color: #ffee00;
+      }
+      body[data-high-contrast='true'] .hud-title,
+      body[data-high-contrast='true'] .hud-stats {
+        background: #000;
+        color: #fff;
+        border: 1px solid #fff;
+      }
+      body[data-high-contrast='true'] .hud-stats .hud-progress {
+        color: #ffee00;
+      }
+      body[data-high-contrast='true'] .hud-reset {
+        background: #000;
+        color: #fff;
+        border: 2px solid #fff;
+      }
+      body[data-high-contrast='true'] .clear-banner {
+        background: #ffee00;
+        color: #000;
+      }
+      body[data-high-contrast='true'] .results-page {
+        background: #000;
+        color: #fff;
+      }
+      body[data-high-contrast='true'] .results-clear,
+      body[data-high-contrast='true'] .results-time-value {
+        color: #ffee00;
+      }
+      body[data-high-contrast='true'] .results-summary,
+      body[data-high-contrast='true'] .results-puzzle-list button,
+      body[data-high-contrast='true'] .results-actions button {
+        border: 2px solid #fff;
+      }
+      body[data-high-contrast='true'] .results-actions button.primary {
+        background: #ffee00;
+        color: #000;
+      }
+      body[data-high-contrast='true'] .settings-modal,
+      body[data-high-contrast='true'] .help-modal {
+        background: #000;
+        color: #fff;
+        border: 2px solid #fff;
+      }
+      body[data-high-contrast='true'] .settings-header h2,
+      body[data-high-contrast='true'] .settings-section h3,
+      body[data-high-contrast='true'] .help-key-chip {
+        color: #ffee00;
+      }
+      body[data-high-contrast='true'] .help-key-chip {
+        background: #000;
+        border-color: #ffee00;
+      }
+      body[data-high-contrast='true'] .mode-btn {
+        background: #000;
+        color: #fff;
+        border: 2px solid #fff;
+      }
+      body[data-high-contrast='true'] .mode-btn.active {
+        background: #ffee00;
+        color: #000;
+        border-color: #fff;
+      }
     </style>
   </head>
   <body>

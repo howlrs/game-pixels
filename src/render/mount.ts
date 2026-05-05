@@ -43,7 +43,8 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
   const detachInput = attachGridInput(app, () => renderer.layout());
 
   // Zustand subscribe: 関連 state が変わったら redraw
-  const unsub = useGame.subscribe((s) => {
+  const redraw = (): void => {
+    const s = useGame.getState();
     if (!s.currentPuzzle) return;
     renderer.draw({
       board: s.board,
@@ -52,7 +53,23 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
       cursor: s.cursor,
       cleared: s.phase === 'cleared',
     });
-  });
+  };
+  const unsub = useGame.subscribe(() => redraw());
+
+  // β4.0-β: body[data-high-contrast] 属性変化で盤面の色パレットも切替が必要
+  // → MutationObserver で属性変化を検知して即時 redraw
+  let observer: MutationObserver | null = null;
+  if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
+    observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && m.attributeName === 'data-high-contrast') {
+          redraw();
+          break;
+        }
+      }
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-high-contrast'] });
+  }
 
   // タイマー (rAF で経過時間を加算)
   let tickerStart: number | null = null;
@@ -93,6 +110,7 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
     },
     destroy: () => {
       unsub();
+      observer?.disconnect();
       detachInput();
       renderer.destroy();
       app.destroy(true, { children: true, texture: true, textureSource: true });
