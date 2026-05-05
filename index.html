@@ -271,9 +271,13 @@
         min-width: 100px;
       }
       .settings-footer button.primary:hover { background: #ffd633; }
+      /* β3.0-β: ユーザー設定 (a11y.reduceMotion) でアニメ無効化を可能に。
+         body[data-reduce-motion="true"] は SettingsModal のチェックで即時付与される。
+         OS の prefers-reduced-motion とは独立に効く。 */
       @media (prefers-reduced-motion: reduce) {
         .settings-overlay { animation: none; }
       }
+      body[data-reduce-motion='true'] .settings-overlay { animation: none; }
       @media (max-width: 480px) {
         .settings-row { grid-template-columns: 80px 1fr 36px; gap: 8px; font-size: 13px; }
         .settings-section h3 { font-size: 12px; }
@@ -600,6 +604,10 @@
         .puzzle-select button:hover { transform: none; }
         .results-puzzle-list button:hover { transform: none; }
       }
+      body[data-reduce-motion='true'] .results-page { animation: none; }
+      body[data-reduce-motion='true'] .results-actions button:hover { transform: none; }
+      body[data-reduce-motion='true'] .puzzle-select button:hover { transform: none; }
+      body[data-reduce-motion='true'] .results-puzzle-list button:hover { transform: none; }
       /* モード切替ボタン */
       .mode-buttons {
         position: fixed;
@@ -677,6 +685,7 @@
       @media (prefers-reduced-motion: reduce) {
         .clear-banner { animation: none; }
       }
+      body[data-reduce-motion='true'] .clear-banner { animation: none; }
     </style>
   </head>
   <body>

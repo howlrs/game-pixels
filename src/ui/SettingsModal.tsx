@@ -6,9 +6,15 @@
 // - a11y: role="dialog" / aria-modal="true" / フォーカストラップ + 復帰 (Gemini 指摘 1, 2)
 // - body スクロールロック (Gemini 指摘 3)
 // - createPortal で body 直下 mount (Gemini 指摘 6 / stacking 安定)
+//
+// β3.0-β: 設定変更を実エフェクトに反映
+// - audio: setVolume を即呼ぶ (synth に反映)
+// - a11y.reduceMotion: updateReduceMotion で body 属性即反映 (CSS / grid.ts アニメ制御)
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { setVolume } from '@audio/index.ts';
+import { updateReduceMotion } from '@platform/index.ts';
 import { getSavedData, updateSettings } from '@save/index.ts';
 
 interface Props {
@@ -80,12 +86,21 @@ export function SettingsModal({ open, onClose }: Props) {
 
   function commitAudio(partial: Partial<{ master: number; se: number; muteOnBlur: boolean }>) {
     updateSettings({ audio: partial });
-    // β2.0-β の audio がマージ後は audio.setVolume 等を呼ぶ
-    // 現時点では updateSettings が LocalStorage 反映するだけ
+    // β3.0-β: audio synth に即反映
+    if (typeof partial.master === 'number' || typeof partial.se === 'number') {
+      const vol: { master?: number; se?: number } = {};
+      if (typeof partial.master === 'number') vol.master = partial.master;
+      if (typeof partial.se === 'number') vol.se = partial.se;
+      setVolume(vol);
+    }
   }
 
   function commitA11y(partial: Partial<{ reduceMotion: boolean; highContrast: boolean }>) {
     updateSettings({ a11y: partial });
+    // β3.0-β: reduceMotion を body 属性即反映
+    if (typeof partial.reduceMotion === 'boolean') {
+      updateReduceMotion(partial.reduceMotion);
+    }
   }
 
   return createPortal(
