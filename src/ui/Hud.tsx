@@ -9,9 +9,11 @@
 //
 // β2.0-β: 音響ミュート切替ボタン (muted は Zustand 駆動 / Settings Modal 等とも共有可能)
 // β2.0-δ: 「⚙ 設定」ボタンを追加し SettingsModal を開く
-// 並び順: TIME / 🔊 ミュート / ⚙ 設定 / リセット
+// β3.0-γ: TIME の隣に進捗% (PROGRESS xx%) を表示
+// 並び順: TIME / PROGRESS / 🔊 ミュート / ⚙ 設定 / リセット
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { computeProgress } from '@core/index.ts';
 import { useAudio } from '@audio/index.ts';
 import { useGame } from '@game/index.ts';
 import { SettingsModal } from './SettingsModal.tsx';
@@ -27,11 +29,18 @@ export function Hud() {
   const phase = useGame((s) => s.phase);
   const elapsed = useGame((s) => s.elapsedMs);
   const puzzle = useGame((s) => s.currentPuzzle);
+  const board = useGame((s) => s.board);
   const reset = useGame((s) => s.resetBoard);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // β2.0-β: ミュート状態は Zustand 経由 (Settings Modal とも同期可能)
   const muted = useAudio((s) => s.muted);
   const toggleMuted = useAudio((s) => s.toggleMuted);
+
+  // β3.0-γ: 進捗% (memoize: board / puzzle が変わった時のみ再計算)
+  const progressPct = useMemo(() => {
+    if (!puzzle) return 0;
+    return Math.round(computeProgress(board, puzzle.solution).ratio * 100);
+  }, [board, puzzle]);
 
   // Round 7-B: cleared 中は HUD を非表示にして ClearBanner / セル回転アニメに集中させる
   if (phase === 'tap-to-start' || phase === 'puzzle-select' || phase === 'cleared') return null;
@@ -47,6 +56,16 @@ export function Hud() {
         {/* aria-hidden でタイマー読み上げを抑制 (毎秒スパム回避) */}
         <span className="hud-time" aria-hidden="true">
           TIME {formatTime(elapsed)}
+        </span>
+        {/* β3.0-γ: 進捗% — aria-label で意味を伝達、aria-live なしで連続読み上げ抑制
+            (Gemini レビュー a11y 指摘の妥当部分を反映) */}
+        <span
+          className="hud-progress"
+          role="img"
+          aria-label={`進捗 ${progressPct} パーセント`}
+          title={`進捗 ${progressPct}%`}
+        >
+          {progressPct}%
         </span>
         <button
           type="button"
