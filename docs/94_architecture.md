@@ -268,7 +268,7 @@ iOS Safari は他ブラウザと比べて PWA 関連 API のサポートが限�
 | ユニットテスト | `bun test` | (内蔵) | — | Bun 内蔵ランナー (§14.8) |
 | 物理 | (Custom AABB) | (本リポジトリ実装) | — | 整数 + subpixel 自前実装 (§20)、汎用エンジンは不採用 (§2.1.2) |
 | CI Action | `actions/checkout` | `v4.1.6` | (CI) | GitHub Actions 用 |
-| CI Action | `oven-sh/setup-bun` | `v2.0.0` | (CI) | CI 上での Bun 環境構築 |
+| CI Action | `oven-sh/setup-bun` | `v2.2.0` | (CI) | CI 上での Bun 環境構築 (Step F で実 marketplace の最新版に補正) |
 | 型定義 (Bun 内蔵 API) | `@types/bun` | `1.3.13` | dev | `bun:test` 等の Bun 内蔵 API の型。Round 3 / 実装スケルトン構築時に追加 |
 | Vite React プラグイン | `@vitejs/plugin-react` | `4.3.1` | dev | React 19 用の Vite プラグイン。Round 3 / 実装スケルトン構築時に追加 |
 | 型定義 (Howler) | `@types/howler` | `2.2.11` | dev | Howler 用 |
