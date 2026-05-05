@@ -150,28 +150,37 @@ export function createGridRenderer(app: Application): GridRenderer {
           cellsG.rect(x + 1, y + 1, cellPx - 2, cellPx - 2).fill(fillColor);
         }
         if (cs === X_MARKED) {
-          // × 記号: 線 2 本
+          // × 記号: 線 2 本 (各線で個別 Graphics + path にして抜けを防ぐ)
           const inset = Math.floor(cellPx * 0.25);
-          cellsG.moveTo(x + inset, y + inset).lineTo(x + cellPx - inset, y + cellPx - inset).stroke({ color: COLOR_X, width: 2 });
-          cellsG.moveTo(x + cellPx - inset, y + inset).lineTo(x + inset, y + cellPx - inset).stroke({ color: COLOR_X, width: 2 });
+          const xG = new Graphics();
+          xG.moveTo(x + inset, y + inset).lineTo(x + cellPx - inset, y + cellPx - inset).stroke({ color: COLOR_X, width: 2 });
+          xG.moveTo(x + cellPx - inset, y + inset).lineTo(x + inset, y + cellPx - inset).stroke({ color: COLOR_X, width: 2 });
+          root.addChild(xG);
         }
       }
     }
     root.addChild(cellsG);
 
     // 5. グリッド線 (5 セルごと太く)
+    // Pixi.js v8 の Graphics で moveTo+lineTo+stroke をループ連続コールすると、
+    // path 分離が不十分で line が抜ける問題があるため、各線を rect (矩形塗り) で描画する
+    // (Round 6 / ユーザー報告の「row 3-4 間の横線抜け」修正)。
     const gridG = new Graphics();
+    const totalW = width * cellPx;
+    const totalH = height * cellPx;
     for (let i = 0; i <= width; i++) {
       const strong = i % 5 === 0;
       const w = strong ? 2 : 1;
       const color = strong ? COLOR_GRID_LINE_STRONG : COLOR_GRID_LINE;
-      gridG.moveTo(boardLeftPx + i * cellPx, boardTopPx).lineTo(boardLeftPx + i * cellPx, boardTopPx + height * cellPx).stroke({ color, width: w });
+      // 縦線: x = boardLeftPx + i*cellPx を中心に幅 w の矩形
+      gridG.rect(boardLeftPx + i * cellPx - Math.floor(w / 2), boardTopPx, w, totalH).fill(color);
     }
     for (let i = 0; i <= height; i++) {
       const strong = i % 5 === 0;
       const w = strong ? 2 : 1;
       const color = strong ? COLOR_GRID_LINE_STRONG : COLOR_GRID_LINE;
-      gridG.moveTo(boardLeftPx, boardTopPx + i * cellPx).lineTo(boardLeftPx + width * cellPx, boardTopPx + i * cellPx).stroke({ color, width: w });
+      // 横線
+      gridG.rect(boardLeftPx, boardTopPx + i * cellPx - Math.floor(w / 2), totalW, w).fill(color);
     }
     root.addChild(gridG);
 
