@@ -3,7 +3,7 @@
 
 import * as v from 'valibot';
 
-export type PuzzleCategory = '5x5' | '10x10' | '15x15';
+export type PuzzleCategory = '5x5' | '10x10' | '15x15' | '25x25';
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
 
 const ClueSchema = v.array(v.pipe(v.number(), v.integer(), v.minValue(0)));
@@ -15,7 +15,7 @@ const PuzzleMetaSchema = v.object({
   height: v.pipe(v.number(), v.integer(), v.minValue(3), v.maxValue(50)),
   difficulty: v.picklist(['easy', 'medium', 'hard']),
   estimatedSolveSeconds: v.pipe(v.number(), v.integer(), v.minValue(10)),
-  category: v.picklist(['5x5', '10x10', '15x15']),
+  category: v.picklist(['5x5', '10x10', '15x15', '25x25']),
   description: v.string(),
 });
 
@@ -38,7 +38,7 @@ export interface PuzzleIndex {
 
 export const PuzzleIndexSchema = v.object({
   puzzles: v.array(PuzzleMetaSchema),
-  categoryOrder: v.array(v.picklist(['5x5', '10x10', '15x15'])),
+  categoryOrder: v.array(v.picklist(['5x5', '10x10', '15x15', '25x25'])),
 });
 
 export class PuzzleLoadError extends Error {

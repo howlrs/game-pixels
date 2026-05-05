@@ -26,7 +26,7 @@ import {
 import { useGame } from '@game/index.ts';
 import { getSavedData } from '@save/index.ts';
 
-const CATEGORY_ORDER: ReadonlyArray<PuzzleCategory> = ['5x5', '10x10', '15x15'];
+const CATEGORY_ORDER: ReadonlyArray<PuzzleCategory> = ['5x5', '10x10', '15x15', '25x25'];
 
 interface Props {
   /** パズル選択トップへ戻る (App.tsx 側で setPhase('puzzle-select') を実行) */

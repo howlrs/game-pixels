@@ -109,17 +109,29 @@ bun scripts/validate-puzzle.mjs public/puzzles/5x5/heart.json
 
 `assessSolution(solution, { pass: {...} })` で個別緩和可能。
 
-## 既存 5x5 パズル品質 (2026-05-05 検証)
+## パズル品質 (Round 7-E 完了時 2026-05-05 / 全 21 puzzle)
 
-| パズル | unique | logical | pixelRatio | components | h / v / p |
-|-------|--------|---------|-----------|-----------|----------|
-| ハート | ✓ | ✓ | 0.64 | 1 | 1.00 / 0.60 / 0.60 |
-| ダイヤ | ✓ | ✓ | 0.52 | 1 | 1.00 / 1.00 / 1.00 |
-| プラス | ✓ | ✓ | 0.36 | 1 | 1.00 / 1.00 / 1.00 |
+| カテゴリ | 件数 | すべて unique + logically solvable |
+|---------|------|------------------------------|
+| 5x5 | 3 | ✓ (ハート / ダイヤ / プラス) |
+| 10x10 | 8 | ✓ (ねこ / いえ / ほし / きのこ / ハート(大) / かさ / ロケット / き) |
+| 15x15 | 7 | ✓ (りんご / うさぎ / さかな / きりん / ぞう / かに / かたつむり) |
+| 25x25 | 3 | ✓ (ちょう / しろ / ドラゴン) |
 
-全パズル合格。
+全 21 パズル合格。
 
-## 次フェーズ
+## CI バリデーション (Round 7-E)
 
-- **PR-D**: 画像→ピクセル変換 + 自動 flip 調整 (assessSolution で篩う) + 10x10 × 8
-- **PR-E**: 15x15 × 7 + GitHub Actions で `bun run validate-puzzles` を必須チェック化
+`.github/workflows/ci.yml` に validate-puzzles ジョブを追加 (timeout-minutes: 5)。
+PR ごとに以下を強制:
+
+1. `bun run validate-puzzles` で全パズルの QA 通過
+2. `.grid` を編集後 `bun scripts/build-puzzles.mjs` で `.json` 再生成済か (diff チェック)
+3. `bun scripts/build-index.mjs` で `index.json` 再生成済か (diff チェック)
+
+任意のチェック失敗で CI fail。
+
+## メタ定義の集約
+
+`scripts/puzzle-meta.mjs` に `SIZES` / `META` / `ID_ORDER` / `durationFor` を集約。
+`build-puzzles.mjs` と `build-index.mjs` が共通参照する (DRY 原則 / Gemini Pro deep 指摘 5)。

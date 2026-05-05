@@ -54,3 +54,37 @@ jobs:
           test -f dist/registerSW.js
           test -f dist/index.html
           echo "✅ PWA outputs verified"
+
+  # Round 7-E: パズル品質 CI バリデーション。
+  # Gemini Pro deep 計画指摘 C-2 / E: timeout-minutes:5 必須 (一意性 solver 計算爆発回避)。
+  validate-puzzles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.6
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version: '1.2.0'
+      - name: Install (frozen lockfile)
+        run: bun install --frozen-lockfile
+      - name: Validate all puzzles (QA suite)
+        run: bun run validate-puzzles
+      # Gemini Pro deep 指摘 2: .grid だけ更新して .json 再生成忘れも検知
+      - name: Verify puzzle JSON is rebuilt from grid
+        run: |
+          bun scripts/build-puzzles.mjs > /dev/null
+          if ! git diff --exit-code public/puzzles/; then
+            echo "❌ .grid を更新後 bun run build-puzzles を実行していない。再生成して commit してください"
+            exit 1
+          fi
+          echo "✅ puzzle JSON is up to date"
+      - name: Verify index.json is up to date
+        run: |
+          bun scripts/build-index.mjs > /dev/null
+          if ! git diff --exit-code public/puzzles/index.json; then
+            echo "❌ public/puzzles/index.json が古い。bun run build-index を実行して再生成し commit してください"
+            exit 1
+          fi
+          echo "✅ index.json is up to date"
