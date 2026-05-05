@@ -48,12 +48,15 @@
 
 ### 4.2.1 ジャンプ詳細
 
+ジャンプの可変高は §2.2.4 の **二重重力** に一本化する。`vy` を直接クリップする処理は混在させない (軌道が不自然に折れる原因)。
+
 ```pseudo
 on_jump_pressed:
     jump_buffer_timer = 6
 on_jump_released:
     jump_button_held = false
-    if vy < 0: vy = max(vy, FALL_GRAVITY_THRESHOLD)  # 早期落下に切替
+    # 以降の毎フレームで gravity_table を FallForce に切替 (§2.2.4)。
+    # vy 自体には触れない。
 
 every_frame:
     if jump_buffer_timer > 0 and (on_ground or coyote_timer > 0):
@@ -62,6 +65,9 @@ every_frame:
         coyote_timer = 0
         on_ground = false
         jump_button_held = true
+    # 重力適用 (§2.2.4)
+    g = jump_button_held && vy < 0 ? JumpForce[speed_idx] : FallForce[speed_idx]
+    vy = clamp(vy + g, -INF, TERMINAL_VY)
 ```
 
 ### 4.2.2 ダッシュとスキッド
@@ -119,7 +125,9 @@ on_death:
 ## 4.7 隠しコマンド/イースターエッグ
 
 - ジャンプ中に Run 押し直しでファイア弾を撃てる (Fire 状態時、上限同時 2 発)。
-- 同一フレーム内に L+R 同時入力された場合、`Player_X_MoveForce` のみを倍速で減衰させる (古典の "rapid skid")。
+- L+R 同時入力時の処理:
+  - 既定 (現代 SOCD): "後押し優先" (§2.2.5) — 直近に押されたほうを採用。古典の "rapid skid" は発火しない。
+  - オプション "クラシック SOCD": L+R 中に `Player_X_MoveForce` を倍速減衰。a11y/設定でユーザーが選んだ場合のみ有効。
 
 ## 4.8 観測 (テスト容易性)
 
