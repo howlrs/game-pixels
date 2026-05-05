@@ -34,3 +34,6 @@ tmp/
 bun.lockb
 # 開発時の自己署名証明書 (basicSsl plugin が ~/.cache/ に保存)
 .cert/
+
+# β9.0-β: 画像→パズル生成のサンプル出力 (実 deploy 対象外)
+tools/puzzle-specs/sample/
