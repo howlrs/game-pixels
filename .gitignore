@@ -1,0 +1,27 @@
+# OS / editor
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
+# Node / web (将来用)
+node_modules/
+dist/
+build/
+.cache/
+.next/
+.turbo/
+
+# Logs
+*.log
+
+# Local env
+.env
+.env.local
+
+# Test artifacts
+coverage/
+
+# Temporary
+tmp/
+*.tmp
