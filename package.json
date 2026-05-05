@@ -21,7 +21,7 @@
     "validate-puzzles": "bun scripts/validate-puzzle.mjs",
     "build-puzzles": "bun scripts/build-puzzles.mjs",
     "build-index": "bun scripts/build-index.mjs",
-    "deploy": "bun run build && wrangler pages deploy dist --project-name=pixels --branch=main"
+    "deploy": "bun run build && wrangler pages deploy dist --project-name=pixels --branch=main --commit-message=deploy"
   },
   "dependencies": {
     "bitecs": "0.4.0",
