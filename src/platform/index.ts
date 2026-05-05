@@ -10,3 +10,4 @@ export {
   promptInstall,
 } from './install.ts';
 export { updateReduceMotion, isReduceMotionApplied } from './reduce-motion.ts';
+export { updateHighContrast, isHighContrastApplied } from './high-contrast.ts';

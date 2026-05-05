@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { setVolume } from '@audio/index.ts';
-import { updateReduceMotion } from '@platform/index.ts';
+import { updateHighContrast, updateReduceMotion } from '@platform/index.ts';
 import { getSavedData, updateSettings } from '@save/index.ts';
 
 interface Props {
@@ -100,6 +100,10 @@ export function SettingsModal({ open, onClose }: Props) {
     // β3.0-β: reduceMotion を body 属性即反映
     if (typeof partial.reduceMotion === 'boolean') {
       updateReduceMotion(partial.reduceMotion);
+    }
+    // β4.0-β: highContrast を body 属性即反映 + Pixi.js 盤面再描画 (mount.ts subscribe で自動)
+    if (typeof partial.highContrast === 'boolean') {
+      updateHighContrast(partial.highContrast);
     }
   }
 
@@ -198,7 +202,7 @@ export function SettingsModal({ open, onClose }: Props) {
                 commitA11y({ highContrast: e.target.checked });
               }}
             />
-            <span>ハイコントラスト (将来対応)</span>
+            <span>ハイコントラスト</span>
           </label>
         </section>
 

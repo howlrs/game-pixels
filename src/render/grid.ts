@@ -17,17 +17,55 @@ import { EMPTY, FILLED, X_MARKED, type Board, type CellState, type PuzzleData } 
 import type { ClueMarkState, CursorPos } from '@game/index.ts';
 import type { GridLayout } from '@input/index.ts';
 
-const COLOR_BG = 0x1a1a1a;
-const COLOR_GRID_LINE = 0x444444;
-const COLOR_GRID_LINE_STRONG = 0x888888; // 5 セルごと
-const COLOR_FILLED = 0xeeeeee;
-const COLOR_X = 0xff5577;
-const COLOR_HINT_TEXT = 0xeeeeee;
-const COLOR_HINT_DONE = 0x666666; // ユーザー手動マーク (toggleRowMark/toggleColMark)
-// β3.0-α: 行/列が正解通り塗られている時の自動完成色 (緑系)
-const COLOR_HINT_AUTO_COMPLETE = 0x55cc77;
-const COLOR_CURSOR = 0xffcc00;
-const COLOR_CLEAR_OVERLAY = 0x55ff77;
+// β4.0-β: 配色パレット — 通常 / ハイコントラスト の 2 系統。
+// body[data-high-contrast="true"] が付いているときに HC 版を返す。
+interface Palette {
+  bg: number;
+  gridLine: number;
+  gridLineStrong: number;
+  filled: number;
+  xMark: number;
+  hintText: number;
+  hintDone: number;
+  hintAutoComplete: number;
+  cursor: number;
+  clearOverlay: number;
+}
+
+const PALETTE_DEFAULT: Palette = {
+  bg: 0x1a1a1a,
+  gridLine: 0x444444,
+  gridLineStrong: 0x888888,
+  filled: 0xeeeeee,
+  xMark: 0xff5577,
+  hintText: 0xeeeeee,
+  hintDone: 0x666666,
+  hintAutoComplete: 0x55cc77,
+  cursor: 0xffcc00,
+  clearOverlay: 0x55ff77,
+};
+
+const PALETTE_HIGH_CONTRAST: Palette = {
+  bg: 0x000000,
+  gridLine: 0xaaaaaa,
+  gridLineStrong: 0xffffff,
+  filled: 0xffffff,
+  // Gemini 指摘: より明度を上げて視認性確保 (黒背景で約 5:1 → AA 余裕)
+  xMark: 0xff5555,
+  hintText: 0xffffff,
+  // Gemini 指摘: 0x999999 は AAA (7:1) に届かない → 0xcccccc (約 11:1) に上げる
+  hintDone: 0xcccccc,
+  hintAutoComplete: 0x00ff66,
+  cursor: 0xffee00,
+  clearOverlay: 0x00ff66,
+};
+
+function getPalette(): Palette {
+  if (typeof document !== 'undefined' && document.body.dataset.highContrast === 'true') {
+    return PALETTE_HIGH_CONTRAST;
+  }
+  return PALETTE_DEFAULT;
+}
 
 /**
  * β3.0-α: 行 / 列の塗りパターンが正解と一致するか判定。
@@ -124,27 +162,28 @@ export function createGridRenderer(app: Application): GridRenderer {
     const layout = computeLayout(state);
     currentLayout = layout;
     const { boardLeftPx, boardTopPx, cellPx, width, height } = layout;
+    const palette = getPalette();
 
     // 1. 背景
-    const bg = new Graphics().rect(0, 0, app.canvas.width, app.canvas.height).fill(COLOR_BG);
+    const bg = new Graphics().rect(0, 0, app.canvas.width, app.canvas.height).fill(palette.bg);
     root.addChild(bg);
 
     // 2. 列ヒント (盤面の上)
     const hintStyle = new TextStyle({
-      fill: COLOR_HINT_TEXT as ColorSource,
+      fill: palette.hintText as ColorSource,
       fontSize: Math.max(10, Math.floor(cellPx * 0.45)),
       fontFamily: 'monospace',
       align: 'center',
     });
     const hintDoneStyle = new TextStyle({
-      fill: COLOR_HINT_DONE as ColorSource,
+      fill: palette.hintDone as ColorSource,
       fontSize: Math.max(10, Math.floor(cellPx * 0.45)),
       fontFamily: 'monospace',
       align: 'center',
     });
     // β3.0-α: 自動完成スタイル (行/列が正解通り塗られている時)
     const hintAutoCompleteStyle = new TextStyle({
-      fill: COLOR_HINT_AUTO_COMPLETE as ColorSource,
+      fill: palette.hintAutoComplete as ColorSource,
       fontSize: Math.max(10, Math.floor(cellPx * 0.45)),
       fontFamily: 'monospace',
       fontWeight: 'bold',
@@ -227,15 +266,15 @@ export function createGridRenderer(app: Application): GridRenderer {
         const x = boardLeftPx + col * cellPx;
         const y = boardTopPx + row * cellPx;
         if (cs === FILLED) {
-          const fillColor = state.cleared ? COLOR_CLEAR_OVERLAY : COLOR_FILLED;
+          const fillColor = state.cleared ? palette.clearOverlay : palette.filled;
           cellsG.rect(x + 1, y + 1, cellPx - 2, cellPx - 2).fill(fillColor);
         }
         if (cs === X_MARKED) {
           // × 記号: 線 2 本 (各線で個別 Graphics + path にして抜けを防ぐ)
           const inset = Math.floor(cellPx * 0.25);
           const xG = new Graphics();
-          xG.moveTo(x + inset, y + inset).lineTo(x + cellPx - inset, y + cellPx - inset).stroke({ color: COLOR_X, width: 2 });
-          xG.moveTo(x + cellPx - inset, y + inset).lineTo(x + inset, y + cellPx - inset).stroke({ color: COLOR_X, width: 2 });
+          xG.moveTo(x + inset, y + inset).lineTo(x + cellPx - inset, y + cellPx - inset).stroke({ color: palette.xMark, width: 2 });
+          xG.moveTo(x + cellPx - inset, y + inset).lineTo(x + inset, y + cellPx - inset).stroke({ color: palette.xMark, width: 2 });
           root.addChild(xG);
         }
       }
@@ -252,14 +291,14 @@ export function createGridRenderer(app: Application): GridRenderer {
     for (let i = 0; i <= width; i++) {
       const strong = i % 5 === 0;
       const w = strong ? 2 : 1;
-      const color = strong ? COLOR_GRID_LINE_STRONG : COLOR_GRID_LINE;
+      const color = strong ? palette.gridLineStrong : palette.gridLine;
       // 縦線: x = boardLeftPx + i*cellPx を中心に幅 w の矩形
       gridG.rect(boardLeftPx + i * cellPx - Math.floor(w / 2), boardTopPx, w, totalH).fill(color);
     }
     for (let i = 0; i <= height; i++) {
       const strong = i % 5 === 0;
       const w = strong ? 2 : 1;
-      const color = strong ? COLOR_GRID_LINE_STRONG : COLOR_GRID_LINE;
+      const color = strong ? palette.gridLineStrong : palette.gridLine;
       // 横線
       gridG.rect(boardLeftPx, boardTopPx + i * cellPx - Math.floor(w / 2), totalW, w).fill(color);
     }
@@ -271,7 +310,7 @@ export function createGridRenderer(app: Application): GridRenderer {
       const cy = boardTopPx + state.cursor.row * cellPx;
       const cursorG = new Graphics()
         .rect(cx + 1, cy + 1, cellPx - 2, cellPx - 2)
-        .stroke({ color: COLOR_CURSOR, width: 2 });
+        .stroke({ color: palette.cursor, width: 2 });
       root.addChild(cursorG);
     }
   }
@@ -334,6 +373,8 @@ export function createGridRenderer(app: Application): GridRenderer {
 
     const layout = currentLayout;
     const { boardLeftPx, boardTopPx, cellPx, width, height } = layout;
+    // β4.0-β: ハイコントラスト切替に対応 (palette を取得)
+    const palette = getPalette();
     const animContainer = new Container();
     activeAnimContainer = animContainer;
     root.addChild(animContainer);
@@ -361,7 +402,7 @@ export function createGridRenderer(app: Application): GridRenderer {
         const cy = boardTopPx + row * cellPx + cellPx / 2;
         const g = new Graphics()
           .rect(-(cellPx - 2) / 2, -(cellPx - 2) / 2, cellPx - 2, cellPx - 2)
-          .fill(COLOR_CLEAR_OVERLAY);
+          .fill(palette.clearOverlay);
         g.x = cx;
         g.y = cy;
         // pivot は (0,0) のまま (rect が中央基準で描画されているため)
