@@ -15,9 +15,13 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'ピクセルズ',
+        name: 'ピクセルズ - Web ノノグラム / ピクチャーロジック',
         short_name: 'ピクセルズ',
-        description: 'Web ピクチャーロジック (ノノグラム)',
+        // β11.2 SEO: 短い説明では検索/インストールバナーで訴求不足。長文 description で機能を網羅。
+        description:
+          '行と列のヒント数字から塗るマスを論理だけで導く Web ノノグラム / ピクチャーロジック。5×5〜25×25 の 21 パズルすべて推測なしで解ける一意解 (CI 強制)。Undo/Redo、ズーム+パン、PWA でオフライン対応。広告・課金・登録ゼロ。',
+        lang: 'ja',
+        categories: ['games', 'puzzle', 'entertainment'],
         theme_color: '#000000',
         background_color: '#000000',
         // §14.10: フルスクリーン起動 (display_override の fullscreen は iOS で実質 standalone)
@@ -31,6 +35,16 @@ export default defineConfig({
           { src: '/icon-192.svg', sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
           { src: '/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any' },
           { src: '/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' },
+        ],
+        // β11.2 SEO: PWA インストール時のスクリーンショットプレビュー (Chrome / Edge 対応)
+        screenshots: [
+          {
+            src: '/og-image.png',
+            sizes: '1200x630',
+            type: 'image/png',
+            form_factor: 'wide',
+            label: 'うさぎパズル完成例 - 15x15 ノノグラム',
+          },
         ],
       },
       workbox: {

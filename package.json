@@ -9,7 +9,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && bun run build:ssg",
+    "build:ssg": "bun scripts/build-og-images.mjs && bun scripts/build-static-pages.mjs && bun scripts/build-sitemap.mjs",
     "preview": "vite preview",
     "lint": "biome lint .",
     "format": "biome format --write .",

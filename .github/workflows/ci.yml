@@ -55,6 +55,31 @@ jobs:
           test -f dist/index.html
           echo "✅ PWA outputs verified"
 
+      # β12.0-α: SSG outputs (個別 puzzle HTML / OG image / sitemap / robots) を検証
+      - name: Verify SSG outputs
+        run: |
+          # Top + 全カテゴリ + 個別パズルの HTML
+          test -f dist/index.html
+          test -f dist/puzzles/index.html
+          test -f dist/puzzles/5x5/index.html
+          test -f dist/puzzles/15x15/index.html
+          test -f dist/puzzles/15x15/rabbit/index.html
+          test -f dist/puzzles/25x25/dragon/index.html
+          # OG image (パズル別)
+          test -f dist/og/15x15/rabbit.png
+          test -f dist/og/5x5/heart.png
+          # sitemap + robots
+          test -f dist/sitemap.xml
+          test -f dist/robots.txt
+          # SEO meta が個別 path で書き換わっていることを確認
+          grep -q '<title>うさぎ' dist/puzzles/15x15/rabbit/index.html
+          grep -q 'canonical.*rabbit' dist/puzzles/15x15/rabbit/index.html
+          grep -q '__PIXELS_INITIAL_PATH__.*rabbit' dist/puzzles/15x15/rabbit/index.html
+          # sitemap に全 URL が含まれる
+          grep -q 'rabbit' dist/sitemap.xml
+          grep -q 'puzzles/15x15/' dist/sitemap.xml
+          echo "✅ SSG outputs verified"
+
   # Round 7-E: パズル品質 CI バリデーション。
   # Gemini Pro deep 計画指摘 C-2 / E: timeout-minutes:5 必須 (一意性 solver 計算爆発回避)。
   validate-puzzles:
