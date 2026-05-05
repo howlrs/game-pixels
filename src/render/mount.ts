@@ -59,6 +59,14 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
     lastTargetResolution = target;
   }
 
+  // β10.0-α: viewport を root に適用 (scale + position)
+  // root は createGridRenderer 内で生成された stage の唯一の子 (= boardRoot 相当)。
+  // 描画後に毎回 boardRoot だけを変換することで、背景は世界座標、グリッドは zoom される。
+  function applyViewport(): void {
+    const vp = useGame.getState().viewport;
+    renderer.setViewport(vp.scale, vp.panX, vp.panY);
+  }
+
   // Zustand subscribe: 関連 state が変わったら redraw
   const redraw = (): void => {
     const s = useGame.getState();
@@ -71,8 +79,23 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
       cursor: s.cursor,
       cleared: s.phase === 'cleared',
     });
+    applyViewport();
   };
-  const unsub = useGame.subscribe(() => redraw());
+  const unsub = useGame.subscribe((next, prev) => {
+    // β10.0-α: viewport-only 変化なら再描画せず viewport だけ更新 (高頻度の wheel/pinch 対策)
+    if (
+      next.viewport !== prev.viewport &&
+      next.board === prev.board &&
+      next.marks === prev.marks &&
+      next.cursor === prev.cursor &&
+      next.phase === prev.phase &&
+      next.currentPuzzle === prev.currentPuzzle
+    ) {
+      applyViewport();
+      return;
+    }
+    redraw();
+  });
 
   // β4.0-β: body[data-high-contrast] 属性変化で盤面の色パレットも切替が必要
   // → MutationObserver で属性変化を検知して即時 redraw
@@ -121,6 +144,7 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
       cursor: s.cursor,
       cleared: s.phase === 'cleared',
     });
+    applyViewport();
   }
 
   return {
