@@ -79,10 +79,16 @@ export function getSavedData(): SaveData {
   return saved;
 }
 
-/** クリア記録を更新する (clear 達成時に呼ぶ予定、MVP では未連携) */
-export function recordClear(puzzleId: string, timeMs: number): void {
+/**
+ * クリア記録を更新する。
+ * 戻り値: 「更新前の bestTimeMs」(初クリアなら null)。
+ * App.tsx 側で「今回のタイムが過去ベストより速いか (= NEW!)」を判定するために使う
+ * (Round 7-A / Gemini Pro 指摘 ②)。
+ */
+export function recordClear(puzzleId: string, timeMs: number): number | null {
   const now = Date.now();
   const prev = saved.clearRecords[puzzleId];
+  const previousBest = prev?.bestTimeMs ?? null;
   saved.clearRecords[puzzleId] = {
     puzzleId,
     bestTimeMs: prev ? Math.min(prev.bestTimeMs, timeMs) : timeMs,
@@ -92,4 +98,5 @@ export function recordClear(puzzleId: string, timeMs: number): void {
   };
   delete saved.activePuzzles[puzzleId]; // クリア済はアクティブから外す
   if (backend) backend.save(saved);
+  return previousBest;
 }

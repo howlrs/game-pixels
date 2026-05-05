@@ -1,6 +1,6 @@
-// docs §10 クリア演出: overlay + 自動遷移 (3 秒後にパズル選択画面)。
-// ユーザー要望 (Round 6 後): クリア成功でゲーム再プレイ画面 (= パズル選択) に自動遷移。
-// 達成感を見たいユーザー向けに「いますぐ戻る」ボタンも提供 (即時遷移可能)。
+// docs §10 / Round 7-A: クリア演出 overlay。1.5 秒経過で結果ページへ自動遷移。
+// 旧仕様 (3 秒でパズル選択直行) は ResultsPage 導入により短縮。
+// 達成感を見たいユーザー向けに「結果を見る」ボタンも提供 (即時遷移可能)。
 
 import { useEffect, useState } from 'react';
 import { useGame } from '@game/index.ts';
@@ -12,32 +12,33 @@ function formatTime(ms: number): string {
   return `${mm}:${ss}`;
 }
 
-const AUTO_RETURN_MS = 3000;
+const AUTO_ADVANCE_MS = 1500;
 
 interface Props {
-  onReturn: () => void;
+  /** 結果ページへ進む (phase='results' に遷移) */
+  onAdvance: () => void;
 }
 
-export function ClearOverlay({ onReturn }: Props) {
+export function ClearOverlay({ onAdvance }: Props) {
   const phase = useGame((s) => s.phase);
   const elapsed = useGame((s) => s.elapsedMs);
   const puzzle = useGame((s) => s.currentPuzzle);
-  const [remainingMs, setRemainingMs] = useState<number>(AUTO_RETURN_MS);
+  const [remainingMs, setRemainingMs] = useState<number>(AUTO_ADVANCE_MS);
 
-  // cleared フェーズ突入時に AUTO_RETURN_MS タイマー開始 → 0 になったら onReturn
+  // cleared フェーズ突入時に AUTO_ADVANCE_MS タイマー開始 → 0 になったら onAdvance
   useEffect(() => {
     if (phase !== 'cleared') {
-      setRemainingMs(AUTO_RETURN_MS);
+      setRemainingMs(AUTO_ADVANCE_MS);
       return;
     }
     const startedAt = performance.now();
     let raf = 0;
     const tick = () => {
       const elapsedTick = performance.now() - startedAt;
-      const left = Math.max(0, AUTO_RETURN_MS - elapsedTick);
+      const left = Math.max(0, AUTO_ADVANCE_MS - elapsedTick);
       setRemainingMs(left);
       if (left <= 0) {
-        onReturn();
+        onAdvance();
         return;
       }
       raf = requestAnimationFrame(tick);
@@ -46,7 +47,7 @@ export function ClearOverlay({ onReturn }: Props) {
     return () => {
       cancelAnimationFrame(raf);
     };
-  }, [phase, onReturn]);
+  }, [phase, onAdvance]);
 
   if (phase !== 'cleared') return null;
 
@@ -59,10 +60,10 @@ export function ClearOverlay({ onReturn }: Props) {
         <p>{puzzle?.meta.title}</p>
         <p>タイム: {formatTime(elapsed)}</p>
         <p className="clear-countdown" aria-live="polite">
-          {remainingSec} 秒後にパズル選択へ戻ります
+          {remainingSec} 秒後に結果ページへ
         </p>
-        <button type="button" onClick={onReturn} className="primary">
-          いますぐ戻る
+        <button type="button" onClick={onAdvance} className="primary">
+          結果を見る
         </button>
       </div>
     </div>
