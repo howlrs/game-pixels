@@ -25,7 +25,8 @@ export type AppPhase =
   | 'puzzle-select'   // パズル選択画面
   | 'playing'         // パズルプレイ中
   | 'paused'          // 一時停止
-  | 'cleared';        // クリア演出中
+  | 'cleared'         // クリア直後の演出 (overlay)
+  | 'results';        // 総評ページ (Round 7-A)
 
 export interface ClueMarkState {
   rowMarks: boolean[][]; // [row][hintIndex]

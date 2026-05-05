@@ -111,19 +111,39 @@
         opacity: 0.6;
         margin-top: 8px;
       }
-      /* パズル選択画面 */
+      /* パズル選択画面 (Round 7-A: センタリング + 視認性向上) */
       .puzzle-select {
         position: fixed;
         inset: 0;
         background: #1a1a1a;
         color: #eee;
-        padding: 24px;
-        overflow: auto;
+        padding: max(24px, var(--safe-top, 0px)) max(24px, var(--safe-right, 0px))
+                max(24px, var(--safe-bottom, 0px)) max(24px, var(--safe-left, 0px));
+        overflow-y: auto;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         z-index: 50;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
       }
-      .puzzle-select h1 { font-size: 24px; margin: 0 0 16px; }
-      .puzzle-select h2 { font-size: 18px; margin: 16px 0 8px; opacity: 0.8; }
+      .puzzle-select > * {
+        width: 100%;
+        max-width: 720px;
+      }
+      .puzzle-select h1 {
+        font-size: 28px;
+        margin: 0 0 24px;
+        text-align: center;
+        color: #ffcc00;
+      }
+      .puzzle-select h2 {
+        font-size: 18px;
+        margin: 24px 0 12px;
+        opacity: 0.8;
+        border-left: 4px solid #ffcc00;
+        padding-left: 8px;
+      }
       .puzzle-select ul.puzzle-list {
         list-style: none;
         padding: 0;
@@ -137,6 +157,191 @@
         flex-direction: column;
         align-items: flex-start;
         gap: 4px;
+        padding: 14px 16px;
+        background: #2a2a2a;
+        color: #eee;
+        border: 1px solid #444;
+        border-radius: 8px;
+        font: inherit;
+        cursor: pointer;
+        min-height: 72px;
+        text-align: left;
+        transition: background 0.15s, transform 0.15s, border-color 0.15s;
+      }
+      .puzzle-select button:hover {
+        background: #383838;
+        border-color: #ffcc00;
+        transform: translateY(-1px);
+      }
+      .puzzle-select button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .puzzle-select button.unsupported { background: #333; }
+      .puzzle-select button strong { font-size: 16px; }
+      .puzzle-select button small { font-size: 12px; opacity: 0.7; }
+      .puzzle-select button em { font-size: 11px; color: #ffaa55; font-style: normal; }
+      .puzzle-select.error { color: #ff7777; padding: 24px; }
+      @media (max-width: 480px) {
+        .puzzle-select h1 { font-size: 22px; margin: 0 0 16px; }
+        .puzzle-select ul.puzzle-list {
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 10px;
+        }
+      }
+      /* 結果ページ (Round 7-A: 総評 / 他パズル / 次レベル誘導) */
+      .results-page {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(135deg, #1a1a1a 0%, #2a1a2a 100%);
+        color: #eee;
+        z-index: 80;
+        overflow-y: auto;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        animation: results-fade-in 0.4s ease-out;
+        padding: max(24px, var(--safe-top, 0px)) max(20px, var(--safe-right, 0px))
+                max(24px, var(--safe-bottom, 0px)) max(20px, var(--safe-left, 0px));
+        box-sizing: border-box;
+      }
+      @keyframes results-fade-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .results-inner {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      .results-header {
+        text-align: center;
+      }
+      .results-header h1 {
+        font-size: 28px;
+        margin: 0 0 8px;
+        line-height: 1.3;
+      }
+      .results-clear {
+        color: #ffcc00;
+        margin-left: 8px;
+      }
+      .results-meta {
+        margin: 0;
+        opacity: 0.7;
+        font-size: 14px;
+      }
+      .results-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 204, 0, 0.2);
+      }
+      .results-miniature {
+        background: #1a1a1a;
+        border: 2px solid #444;
+        border-radius: 6px;
+        flex-shrink: 0;
+      }
+      .results-times {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 180px;
+      }
+      .results-time-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        margin: 0;
+        font-size: 16px;
+      }
+      .results-label { opacity: 0.7; }
+      .results-time-value {
+        font-family: monospace;
+        font-size: 22px;
+        color: #ffcc00;
+      }
+      .results-new-best {
+        font-style: normal;
+        color: #ff7755;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: 6px;
+        background: rgba(255, 119, 85, 0.15);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      .results-meta-small {
+        margin: 0;
+        font-size: 12px;
+        opacity: 0.6;
+      }
+      .results-error {
+        color: #ff7777;
+        text-align: center;
+        margin: 0;
+        font-size: 14px;
+      }
+      .results-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .results-actions button {
+        padding: 12px 24px;
+        font: inherit;
+        font-size: 16px;
+        font-weight: bold;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        min-height: 48px;
+        min-width: 140px;
+        transition: transform 0.1s, box-shadow 0.15s;
+      }
+      .results-actions button:hover { transform: translateY(-1px); }
+      .results-actions button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+      .results-actions button.primary {
+        background: #ffcc00;
+        color: #000;
+        box-shadow: 0 2px 0 #ccaa00;
+      }
+      .results-actions button.primary:hover { background: #ffd633; }
+      .results-actions button.secondary {
+        background: #333;
+        color: #eee;
+        border: 1px solid #555;
+      }
+      .results-actions button.secondary:hover { background: #444; }
+      .results-section h2 {
+        font-size: 18px;
+        margin: 0 0 12px;
+        opacity: 0.85;
+        border-left: 4px solid #ffcc00;
+        padding-left: 8px;
+      }
+      .results-puzzle-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+      }
+      .results-puzzle-list button {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
         padding: 12px 14px;
         background: #2a2a2a;
         color: #eee;
@@ -144,16 +349,52 @@
         border-radius: 8px;
         font: inherit;
         cursor: pointer;
-        min-height: 64px;
+        min-height: 60px;
         text-align: left;
+        width: 100%;
+        transition: background 0.15s, border-color 0.15s, transform 0.15s;
       }
-      .puzzle-select button:hover { background: #383838; }
-      .puzzle-select button:disabled { opacity: 0.5; cursor: not-allowed; }
-      .puzzle-select button.unsupported { background: #333; }
-      .puzzle-select button strong { font-size: 16px; }
-      .puzzle-select button small { font-size: 12px; opacity: 0.7; }
-      .puzzle-select button em { font-size: 11px; color: #ffaa55; font-style: normal; }
-      .puzzle-select.error { color: #ff7777; padding: 24px; }
+      .results-puzzle-list button:hover {
+        background: #383838;
+        border-color: #ffcc00;
+        transform: translateY(-1px);
+      }
+      .results-puzzle-list button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+      .results-puzzle-list button.next-level {
+        background: linear-gradient(135deg, #2a2a4a 0%, #3a2a4a 100%);
+        border-color: #6677ff;
+      }
+      .results-puzzle-list button.next-level:hover {
+        background: linear-gradient(135deg, #3a3a5a 0%, #4a3a5a 100%);
+        border-color: #88aaff;
+      }
+      .results-puzzle-list button strong {
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .results-puzzle-list button small { font-size: 11px; opacity: 0.7; }
+      .results-cleared-mark {
+        color: #55ff77;
+        font-size: 12px;
+        background: rgba(85, 255, 119, 0.15);
+        padding: 0 5px;
+        border-radius: 3px;
+        line-height: 1.4;
+      }
+      @media (max-width: 480px) {
+        .results-header h1 { font-size: 22px; }
+        .results-summary { gap: 16px; padding: 16px; }
+        .results-actions button { min-width: 100px; padding: 10px 16px; font-size: 14px; }
+        .results-puzzle-list { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .results-page { animation: none; }
+        .results-actions button:hover { transform: none; }
+        .puzzle-select button:hover { transform: none; }
+        .results-puzzle-list button:hover { transform: none; }
+      }
       /* モード切替ボタン */
       .mode-buttons {
         position: fixed;

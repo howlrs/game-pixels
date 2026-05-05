@@ -1,4 +1,10 @@
-// docs §14.2.2 App: phase 駆動で TapToStart / PuzzleSelect / GameView (+HUD/Modes/Clear) を切り替え。
+// docs §14.2.2 / Round 7-A: App は phase 駆動で
+// TapToStart / PuzzleSelect / GameView (+HUD/Modes/ClearOverlay) / ResultsPage を切り替える。
+//
+// 遷移フロー (Round 7-A):
+//   tap-to-start → puzzle-select → playing → cleared (1.5s overlay)
+//                                          → results (総評ページ)
+//                                          → puzzle-select (戻る)
 
 import { useCallback, useEffect, useState } from 'react';
 import { mountVisibilityHandler } from '@platform/visibility.ts';
@@ -11,6 +17,7 @@ import { GameView } from './GameView.tsx';
 import { Hud } from './Hud.tsx';
 import { ModeButtons } from './ModeButtons.tsx';
 import { PuzzleSelect } from './PuzzleSelect.tsx';
+import { ResultsPage } from './ResultsPage.tsx';
 import { TapToStartGate } from './TapToStartGate.tsx';
 
 export function App() {
@@ -52,11 +59,15 @@ export function App() {
     // GameStore.loadPuzzle が phase='playing' に遷移済
   }, []);
 
+  const handleAdvanceToResults = useCallback(() => {
+    setPhase('results');
+  }, [setPhase]);
+
   const handleReturnToSelect = useCallback(() => {
     setPhase('puzzle-select');
   }, [setPhase]);
 
-  // GameView は playing / paused / cleared の間だけマウント
+  // GameView は playing / paused / cleared の間だけマウント (results 中は背景の盤面を表示しない)
   const showGameView = phase === 'playing' || phase === 'paused' || phase === 'cleared';
 
   return (
@@ -66,7 +77,8 @@ export function App() {
       {showGameView ? <ModeButtons /> : null}
       {phase === 'tap-to-start' ? <TapToStartGate onStart={handleStart} /> : null}
       {phase === 'puzzle-select' ? <PuzzleSelect onLoaded={handlePuzzleLoaded} /> : null}
-      {phase === 'cleared' ? <ClearOverlay onReturn={handleReturnToSelect} /> : null}
+      {phase === 'cleared' ? <ClearOverlay onAdvance={handleAdvanceToResults} /> : null}
+      {phase === 'results' ? <ResultsPage onReturnToSelect={handleReturnToSelect} /> : null}
     </>
   );
 }
