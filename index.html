@@ -171,6 +171,16 @@
       .hud-mute[aria-pressed='true'] {
         opacity: 0.6;
       }
+      /* β5.0-α: undo/redo 不能時は薄く表示 */
+      .hud-icon-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        background: transparent;
+      }
+      .hud-icon-btn:disabled:hover {
+        background: transparent;
+        border-color: transparent;
+      }
       /* β2.0-δ: 設定モーダル */
       .settings-overlay {
         position: fixed;

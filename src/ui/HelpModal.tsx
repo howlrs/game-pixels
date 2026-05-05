@@ -52,6 +52,13 @@ const SHORTCUT_GROUPS: { title: string; rows: ShortcutRow[] }[] = [
     ],
   },
   {
+    title: 'Undo / Redo',
+    rows: [
+      { keys: ['Cmd+Z', 'Ctrl+Z'], description: '元に戻す' },
+      { keys: ['Cmd+Shift+Z', 'Ctrl+Y'], description: 'やり直す' },
+    ],
+  },
+  {
     title: 'その他',
     rows: [
       { keys: ['?'], description: 'このヘルプを開く / 閉じる' },

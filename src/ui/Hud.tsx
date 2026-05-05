@@ -11,7 +11,8 @@
 // β2.0-δ: 「⚙ 設定」ボタンを追加し SettingsModal を開く
 // β3.0-γ: TIME の隣に進捗% (PROGRESS xx%) を表示
 // β4.0-α: 「?」ヘルプボタン + グローバル ? キーで HelpModal 開閉
-// 並び順: TIME / PROGRESS / 🔊 ミュート / ? ヘルプ / ⚙ 設定 / リセット
+// β5.0-α: ↶ Undo / ↷ Redo ボタン + Cmd/Ctrl+Z / Cmd/Ctrl+Shift+Z (or Y) ショートカット
+// 並び順: TIME / PROGRESS / ↶ / ↷ / 🔊 ミュート / ? ヘルプ / ⚙ 設定 / リセット
 
 import { useEffect, useMemo, useState } from 'react';
 import { computeProgress } from '@core/index.ts';
@@ -33,6 +34,13 @@ export function Hud() {
   const puzzle = useGame((s) => s.currentPuzzle);
   const board = useGame((s) => s.board);
   const reset = useGame((s) => s.resetBoard);
+  // β5.0-α: undo/redo
+  const undo = useGame((s) => s.undo);
+  const redo = useGame((s) => s.redo);
+  const historyCursor = useGame((s) => s.historyCursor);
+  const historyLength = useGame((s) => s.history.length);
+  const canUndo = historyCursor > 0;
+  const canRedo = historyCursor < historyLength - 1;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   // β2.0-β: ミュート状態は Zustand 経由 (Settings Modal とも同期可能)
@@ -46,22 +54,45 @@ export function Hud() {
   }, [board, puzzle]);
 
   // β4.0-α: グローバル ? キーで HelpModal toggle
+  // β5.0-α: Cmd/Ctrl+Z = undo / Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y = redo
   // INPUT/TEXTAREA/SELECT/contentEditable focus 中は無視 (Gemini 指摘 2)
-  // SettingsModal が開いている時は無視 (Modal 競合排他制御 / Gemini 指摘 1)
+  // SettingsModal/HelpModal が開いている時は無視 (Modal 競合排他制御)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== '?') return;
-      if (settingsOpen) return;
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (target?.isContentEditable) return;
-      e.preventDefault();
-      setHelpOpen((cur) => !cur);
+
+      if (e.key === '?') {
+        if (settingsOpen) return;
+        e.preventDefault();
+        setHelpOpen((cur) => !cur);
+        return;
+      }
+
+      // Modal 開いてる時は undo/redo もスキップ (背景操作回避)
+      if (settingsOpen || helpOpen) return;
+
+      // Cmd/Ctrl + Z (Shift なし) → Undo
+      // Cmd/Ctrl + Shift + Z または Cmd/Ctrl + Y → Redo
+      // β5.0-α / Gemini 指摘: e.code を併用して IME / 配列依存を回避
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      const code = e.code;
+      const isZ = code === 'KeyZ' || e.key.toLowerCase() === 'z';
+      const isY = code === 'KeyY' || e.key.toLowerCase() === 'y';
+      if (isZ && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((isZ && e.shiftKey) || isY) {
+        e.preventDefault();
+        redo();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [settingsOpen]);
+  }, [settingsOpen, helpOpen, undo, redo]);
 
   // Round 7-B: cleared 中は HUD を非表示にして ClearBanner / セル回転アニメに集中させる
   if (phase === 'tap-to-start' || phase === 'puzzle-select' || phase === 'cleared') return null;
@@ -88,6 +119,27 @@ export function Hud() {
         >
           {progressPct}%
         </span>
+        {/* β5.0-α: Undo / Redo */}
+        <button
+          type="button"
+          onClick={undo}
+          className="hud-icon-btn"
+          aria-label="元に戻す"
+          disabled={!canUndo}
+          title="元に戻す (Cmd/Ctrl+Z)"
+        >
+          <span aria-hidden="true">↶</span>
+        </button>
+        <button
+          type="button"
+          onClick={redo}
+          className="hud-icon-btn"
+          aria-label="やり直す"
+          disabled={!canRedo}
+          title="やり直す (Cmd/Ctrl+Shift+Z)"
+        >
+          <span aria-hidden="true">↷</span>
+        </button>
         <button
           type="button"
           onClick={toggleMuted}

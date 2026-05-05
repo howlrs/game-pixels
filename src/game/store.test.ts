@@ -26,6 +26,7 @@ const HEART: PuzzleData = {
 };
 
 beforeEach(() => {
+  const s = useGame.getState();
   useGame.setState({
     phase: 'tap-to-start',
     currentPuzzle: null,
@@ -33,6 +34,9 @@ beforeEach(() => {
     mode: 'fill',
     drag: null,
     elapsedMs: 0,
+    // β5.0-α: 履歴も毎テスト初期化 (board + marks のスナップショット)
+    history: [{ board: s.board, marks: s.marks }],
+    historyCursor: 0,
   });
 });
 
@@ -131,5 +135,101 @@ describe('useGame', () => {
     expect(useGame.getState().board.cells[0]).toBe(X_MARKED);
     useGame.getState().tapCell(0, 0, 'mark-x');
     expect(useGame.getState().board.cells[0]).toBe(EMPTY);
+  });
+});
+
+describe('Undo / Redo (β5.0-α)', () => {
+  test('loadPuzzle 直後は cursor=0 / history 1 件で undo 不可', () => {
+    useGame.getState().loadPuzzle(HEART);
+    const s = useGame.getState();
+    expect(s.history.length).toBe(1);
+    expect(s.historyCursor).toBe(0);
+    // undo しても何も起きない
+    s.undo();
+    expect(useGame.getState().historyCursor).toBe(0);
+  });
+
+  test('tapCell → undo で 1 つ前に戻る / redo で進む', () => {
+    useGame.getState().loadPuzzle(HEART);
+    useGame.getState().tapCell(0, 0, 'fill'); // (0,0) を FILLED
+    expect(useGame.getState().board.cells[0]).toBe(FILLED);
+    expect(useGame.getState().history.length).toBe(2);
+    expect(useGame.getState().historyCursor).toBe(1);
+
+    useGame.getState().undo();
+    expect(useGame.getState().board.cells[0]).toBe(EMPTY);
+    expect(useGame.getState().historyCursor).toBe(0);
+
+    useGame.getState().redo();
+    expect(useGame.getState().board.cells[0]).toBe(FILLED);
+    expect(useGame.getState().historyCursor).toBe(1);
+  });
+
+  test('連続 tapCell 後 undo で各ステップ巻戻し', () => {
+    useGame.getState().loadPuzzle(HEART);
+    useGame.getState().tapCell(0, 0, 'fill');
+    useGame.getState().tapCell(1, 0, 'fill');
+    useGame.getState().tapCell(2, 0, 'fill');
+    expect(useGame.getState().history.length).toBe(4);
+    expect(useGame.getState().historyCursor).toBe(3);
+
+    useGame.getState().undo();
+    expect(useGame.getState().board.cells[2]).toBe(EMPTY);
+    expect(useGame.getState().board.cells[1]).toBe(FILLED);
+    useGame.getState().undo();
+    expect(useGame.getState().board.cells[1]).toBe(EMPTY);
+    expect(useGame.getState().board.cells[0]).toBe(FILLED);
+    useGame.getState().undo();
+    expect(useGame.getState().board.cells[0]).toBe(EMPTY);
+
+    useGame.getState().redo();
+    useGame.getState().redo();
+    useGame.getState().redo();
+    expect(useGame.getState().board.cells[2]).toBe(FILLED);
+  });
+
+  test('undo 後の新規操作で redo 履歴は破棄', () => {
+    useGame.getState().loadPuzzle(HEART);
+    useGame.getState().tapCell(0, 0, 'fill');
+    useGame.getState().tapCell(1, 0, 'fill');
+    useGame.getState().undo(); // (1,0) を取り消し
+    expect(useGame.getState().history.length).toBe(3); // [empty, (0,0), (0,0)+(1,0)]
+    useGame.getState().tapCell(2, 0, 'fill'); // 新ブランチ
+    expect(useGame.getState().history.length).toBe(3); // [empty, (0,0), (0,0)+(2,0)]
+    expect(useGame.getState().historyCursor).toBe(2);
+    // redo は不可
+    const cursorBefore = useGame.getState().historyCursor;
+    useGame.getState().redo();
+    expect(useGame.getState().historyCursor).toBe(cursorBefore);
+  });
+
+  test('resetBoard は履歴に push される (undo で戻せる)', () => {
+    useGame.getState().loadPuzzle(HEART);
+    useGame.getState().tapCell(0, 0, 'fill');
+    useGame.getState().tapCell(1, 0, 'fill');
+    useGame.getState().resetBoard();
+    expect(useGame.getState().board.cells[0]).toBe(EMPTY);
+    expect(useGame.getState().historyCursor).toBe(3);
+    // undo で reset 前の状態に戻る
+    useGame.getState().undo();
+    expect(useGame.getState().board.cells[0]).toBe(FILLED);
+    expect(useGame.getState().board.cells[1]).toBe(FILLED);
+  });
+
+  test('ドラッグ中は undo/redo を受け付けない', () => {
+    useGame.getState().loadPuzzle(HEART);
+    useGame.getState().tapCell(0, 0, 'fill');
+    const cursorBeforeDrag = useGame.getState().historyCursor; // 1
+    useGame.getState().beginDrag(2, 0, 'fill');
+    // ドラッグ中: cursor は変わらず undo 不可
+    expect(useGame.getState().historyCursor).toBe(cursorBeforeDrag);
+    useGame.getState().undo();
+    expect(useGame.getState().historyCursor).toBe(cursorBeforeDrag);
+    // endDrag で cursor が 1 進む
+    useGame.getState().endDrag();
+    expect(useGame.getState().historyCursor).toBe(cursorBeforeDrag + 1);
+    // undo で 1 つ戻れる
+    useGame.getState().undo();
+    expect(useGame.getState().historyCursor).toBe(cursorBeforeDrag);
   });
 });
