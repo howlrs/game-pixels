@@ -108,8 +108,49 @@ v1.1 でクラウドセーブ等を導入する場合 (docs §14.15.2):
 
 実装着手時に Firebase Auth を導入したらまず実機で popup ログインを試し、ブロックされたら 1 → 3 の順で対応する。本ドキュメントを更新すること。
 
-## 6. トラブルシュート
+## 6. GitHub Actions 自動デプロイ (main push で自動)
 
+`.github/workflows/deploy.yml` が main push と workflow_dispatch で実行される。
+Cloudflare Pages の Git 連携は使わず、wrangler-action で `dist/` を直接アップロードする方式。
+
+### 6.1 セットアップ (初回のみ)
+
+#### 6.1.1 Cloudflare API token 作成
+
+1. https://dash.cloudflare.com/profile/api-tokens → **Create Token**
+2. テンプレート **"Edit Cloudflare Workers"** を選択 (Pages にも対応)
+3. 権限:
+   - Account → Cloudflare Pages: **Edit**
+   - Account → Workers Scripts: **Edit**
+   - User → User Details: **Read**
+4. Account Resources: **Include → Specific account → Sharebook.amazon@gmail.com's Account** (限定推奨)
+5. **Continue to summary** → **Create Token** → **コピー** (再表示不可)
+
+#### 6.1.2 GitHub Secrets 登録
+
+`howlrs/game-pixels` リポジトリ → Settings → Secrets and variables → Actions → **New repository secret**
+
+| Secret | Value |
+|--------|-------|
+| `CLOUDFLARE_API_TOKEN` | (上で作成した token) |
+| `CLOUDFLARE_ACCOUNT_ID` | `254b3b3ca78079b35c897126142754f5` |
+
+### 6.2 動作
+
+- main への push → CI (build-test + validate-puzzles) 通過後に自動デプロイ
+- Actions タブで **Deploy to Cloudflare Pages** ワークフローを手動実行 (workflow_dispatch) も可能
+- デプロイ完了後、`https://pixels.howlrs.net/` に反映 (~30 秒)
+
+### 6.3 ローカルから手動デプロイ (緊急時)
+
+```bash
+bun run build
+wrangler pages deploy dist --project-name=pixels --branch=main
+```
+
+## 7. トラブルシュート
+
+- **GitHub Actions の wrangler-action が 401** → `CLOUDFLARE_API_TOKEN` のスコープ不足。`Cloudflare Pages: Edit` を必ず付与
 - **ビルドが Node.js を使ってしまう** → `BUN_VERSION` 環境変数が未設定。Production / Preview の両方を確認
 - **WebGPU が動かない** → `Cross-Origin-Embedder-Policy` が `require-corp` でないと WebGPU が一部機能制限を受ける。`_headers` を確認
 - **SW が更新されない** → `sw.js` の Cache-Control が長期キャッシュになっていないか確認 (`_headers` で `must-revalidate` 強制)

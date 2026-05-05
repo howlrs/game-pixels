@@ -1,0 +1,48 @@
+# main push で Cloudflare Pages へ自動デプロイ。
+# - build-test と validate-puzzles の通過後に走る
+# - GitHub Secrets:
+#   - CLOUDFLARE_API_TOKEN: Cloudflare の "Edit Cloudflare Workers" template で作成した API token
+#                            (権限: Account / Cloudflare Pages:Edit, Account / Workers Scripts:Edit)
+#   - CLOUDFLARE_ACCOUNT_ID: Cloudflare アカウント ID (254b3b3ca78079b35c897126142754f5)
+
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false  # デプロイ中の中断は避ける
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version: '1.2.0'
+
+      - name: Install (frozen lockfile)
+        run: bun install --frozen-lockfile
+
+      - name: Build (production)
+        run: bun run build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3.14.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=pixels --branch=main
