@@ -77,3 +77,50 @@
 | プロシージャル音声 | | | ✅ |
 
 - 本ドキュメントのスコープは **MVP** + **v1.1 の準備** まで。
+
+## 18.11 ビルドチェーン (Round 2 / Issue #11)
+
+「ピクセル概念の現代化」は描画・物理だけでなく開発者体験 (DX) にも適用する。**MVP のビルドチェーンは Vite 6+ で確定**する。
+
+| 項目 | 採用 | 理由 |
+| :--- | :--- | :--- |
+| バンドラ / dev サーバ | **Vite 6 系** | エコシステムの成熟 (`vite-plugin-pwa` / `vite-plugin-react` / Pixi.js v8 連携) と HMR の安定性。Bun の bundler は WebGPU 周りで一部 plugin が未対応 (2026-05 時点) のため MVP では Vite を主、Bun はランタイム / PM / テストランナーに限定 (§14.9 / §14.14) |
+| トランスパイラ | esbuild (内蔵) | TS → JS の高速変換 |
+| 本番ビルド | Rollup (Vite 6 内蔵) | tree-shake と code-split が成熟 |
+| Service Worker | `vite-plugin-pwa` | Workbox ラッパー、precache / SWR 戦略を JSON で宣言 |
+
+> 上表の正確なバージョン番号 (Vite / `vite-plugin-pwa` 等) は §14.14 / Issue #10 (T5) PR の確定スタック表で固定する。
+
+> 互換性: Pixi.js v8 (WebGPU/WebGL2/Canvas2D の透過切替, §11.2) と Vite 6 の相性は確認済み (Pixi 公式テンプレート / 各種スターターで採用実績)。
+
+## 18.12 PWA 範囲の確定 (Round 2 / Issue #11)
+
+PWA 機能は **オフラインキャッシュ + フルスクリーン起動の 2 機能のみ** に絞る (Round 1 までの「マルチプレイヤー連携用に Push API を将来導入」想定は破棄)。
+
+| 機能 | 採否 | 理由 |
+| :--- | :--- | :--- |
+| Service Worker (precache + SWR) | **採用** | 通信圏外でも MVP 内ステージはプレイ可能。バージョン管理とキャッシュ無効化は §94.10 の手順に従う |
+| Web App Manifest (`display: standalone` / `display_override: ['fullscreen','standalone']`) | **採用** | ホーム画面追加 → フルスクリーン起動。アドレスバーが消えるため、§17.5 の `dvh`/`svh` 設計と組み合わせて没入感を最大化 |
+| インストール可能 (Add to Home Screen) | **採用** | iOS / Android / Desktop Chrome すべてで対応 |
+| Push API | **不採用** | プレイヤーへのプッシュ通知はゲーム体験を阻害するノイズ (Round 2 / E11, E12 専門家見解)。マルチプレイ拡張時にも別メカニズム (WebSocket / WebRTC) を選ぶ |
+| Background Sync | **不採用** | サーバ依存のオンライン専用ゲーム前提でないため不要。スコア送信が必要になった時点で再評価 |
+| Background Fetch | **不採用** | 大容量ステージ DLC の事前配信が必要になるまで保留 |
+| Web Share Target | **不採用** | ユーザー生成リプレイの共有機能を入れる段階で再評価 (MVP 外) |
+| Periodic Background Sync | **不採用** | プレイヤーが起動していないときのサーバ通信は本作の SLO に合わない |
+
+> オフラインキャッシュとフルスクリーン起動の 2 機能だけで、本作の「ピクセル概念の現代化 = ネイティブアプリと並ぶ没入感を Web で実現」は十分達成できる。
+
+## 18.13 古典 → 現代化の対応関係
+
+参考までに、本作で「古典の概念」をどう「現代の手段」で再実装したかを §98 で集約しておく:
+
+| 古典 (NES / SMB1) | 現代化 |
+| :--- | :--- |
+| 6502 NES の固定 60Hz CPU ループ | rAF + 固定タイムステップ 60Hz (§14.3) |
+| ゼロページの整数演算 (8bit) | TypedArray (Int32Array) SoA (§20.1.1) |
+| OOP / アクター連結リスト | bitECS (§14.2 / §14.2.1) |
+| 8bit 機の固定パレット | スプライトアトラス + WebGPU 16bit float カラー (§11.2.1 / §18.5) |
+| カートリッジ ROM | Service Worker precache (§14.10 / §18.12) |
+| ハンド組み立てステージデータ | Valibot Schema-first JSON (§8.2.2 / §94.2.3) |
+| キーボードマトリクス スキャン | Gamepad API (ポーリング) + イベント駆動キーボード (§9.6.2) |
+| CRT 表示 | WebGPU/WebGL2 シェーダによる CRT モード (§11.10) |

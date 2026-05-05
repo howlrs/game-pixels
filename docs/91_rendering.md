@@ -5,17 +5,38 @@
 - ピクセルアートの輪郭を保ち、にじまない (nearest-neighbor)。
 - HiDPI と任意ウィンドウサイズに**整数倍**スケールで対応 (デバイスごとに最適な scale を選ぶ)。
 - 60Hz 物理を **120Hz/144Hz でも滑らか**に表示 (補間)。
-- フォールバック: WebGPU → WebGL → Canvas2D の順で安全に縮退。
+- **既定は WebGPU**、フォールバック順は **WebGPU → WebGL2 → Canvas2D** で安全に縮退。
 
-## 11.2 レンダラ選択
+## 11.2 レンダラ選択 (Round 2 / Issue #11)
+
+2026 年時点でモダンブラウザの WebGPU 普及率と、モバイル端末での消費電力・性能比 (Canvas2D 比 15〜30 倍) を踏まえ、**既定を WebGPU に切り替える**。Canvas2D は低スペック端末・WebGPU 非互換環境向けの安全網として残置する (Round 1 までの「Canvas2D 既定」方針は本 Round 2 で破棄)。
 
 | レンダラ | 採用条件 | 備考 |
 |---|---|---|
-| **Canvas2D** | 既定 (MVP) | 単純、ブラウザ対応広い、十分な性能 (1ms 以下のステージ) |
-| WebGL2 | シェーダ演出 (CRT, Bloom) を入れる時 | 中間層 |
-| WebGPU | 2026 標準対応、モバイル電池に有利 | feature detect で有効時のみ |
+| **WebGPU** | **既定 (MVP)** | 2026 主要ブラウザで標準対応。モバイル電池に有利。Compute Shader でパーティクル等を GPU 化。Pixi.js v8 系の WebGPU バックエンドを利用 (§14.14)。 |
+| WebGL2 | WebGPU 不可時の第 1 フォールバック | Pixi.js v8 系が同 API で自動切替。シェーダ演出 (CRT, Bloom) も維持できる。 |
+| Canvas2D | WebGPU/WebGL2 ともに不可、または §17.13 簡易ベンチで低スコア時の最終手段 | 単純で対応広い。シェーダ演出は無効化 (§11.10)。 |
 
-> 出典: Canvas 2D は数百のドローコールを 60 fps で問題なく処理できる (state of HTML canvas, 2026)。WebGPU はモバイル電池消費で WebGL より優位。
+> 出典: WebGPU はモバイル電池消費・スループットの両面で WebGL に対し有利 (W3C WebGPU Working Group, 2026)。Pixi.js v8 は WebGPU/WebGL2 のバックエンドを単一 API で透過に切替できるため、レンダラ選択の分岐をアプリ側に持ち込まずに済む。
+
+### 11.2.1 WebGPU 既定化に伴う具体方針
+
+- **初期化**: 起動時に `navigator.gpu?.requestAdapter()` を試行し、`adapter !== null` なら WebGPU バックエンドで Pixi.js を初期化。失敗時は WebGL2、それも失敗したら Canvas2D。`display.renderer` (§93) で手動上書きも可能。
+- **Compute Shader の段階導入**: パーティクル (§11.7 [5] レイヤ) を WebGPU の compute pipeline に乗せる構成を初期段階から見越す。MVP では CPU 側の SoA プール実装で先行し、v1.1 で compute 化する (§95)。
+- **HDR / 高精度カラー**: WebGPU 採用により Pixi.js v8 の `RenderTarget` で 16bit float カラーを扱える。Bloom / 高精細 CRT シェーダの表現幅が広がる (§11.10 / §18.5)。
+- **CI E2E**: WebGPU 既定 + WebGL2 フォールバック + Canvas2D 降格の 3 系統を Playwright (§14.8) で必ず実機ブラウザ (Chrome / Firefox / Safari TP) でスクリーンショット差分テストする (Round 2 リスク事項, Issue #11)。
+- **未解決リスク (CI 上の WebGPU 実行)**: GitHub Actions の `ubuntu-latest` 等の標準ヘッドレス環境では WebGPU はそのまま動作せず、SwiftShader / Dawn / `--enable-unsafe-webgpu` フラグなどの追加設定が必須となる (Round 2 / Gemini Pro 指摘)。本作の CI で WebGPU 経路を実行可能にする手段は Issue #14 (T7 テスト戦略) で具体化する。それまでの間、CI では WebGL2 経路と Canvas2D 経路のみを必須通過対象とし、WebGPU 経路はローカル / プレビュー環境での手動確認に依存する。
+- **シェーダ言語**: WebGPU は WGSL、WebGL2 は GLSL ES 3.00。Pixi.js v8 が両方を内部で吸収するため、本作のアプリ側コードはシェーダ言語を意識しない。独自シェーダを書く局面 (CRT, Bloom) のみ WGSL を主、GLSL を副とし、両言語版を `render/shaders/` に並置する。
+
+### 11.2.2 Canvas2D フォールバック時の制約
+
+WebGPU/WebGL2 のいずれも不可の場合、以下の機能を自動的に無効化する:
+
+- CRT モード / Bloom / 加算光源 (§11.10 / §18.5)
+- 60→120Hz の補間描画は `lerp` のみ (extrapolate は線形変換負荷で重いため off, §11.6)
+- HD-2D 風モード (§18.2.2) は選択 UI から非表示
+
+これらの無効化は §93 のセーブデータの `display.featureFlags` にスナップ保存し、設定画面 (§96) で「現在の環境では使用不可」とグレーアウト表示する。
 
 ## 11.3 仮想解像度とスケール
 
@@ -90,11 +111,11 @@
 
 ## 11.10 シェーダ演出 (オプション)
 
-- WebGL/WebGPU 採用時のみ:
-  - **CRT モード**: scanline + barrel distortion。プリセット ON/OFF を §96 a11y 設定に置く。
-  - **HDR-2D 風 Bloom**: 一部光源 (コイン、ファイア) のみ加算合成。
-- 既定は OFF (パフォーマンス安全)。
-- WebGL/WebGPU 不可環境では UI を表示しない (Canvas2D 単体運用)。
+- 既定レンダラ (WebGPU) または WebGL2 フォールバック時のみ提供:
+  - **CRT モード**: scanline + barrel distortion + 残光。プリセット ON/OFF を §96 a11y 設定に置く。WebGPU では WGSL fragment shader、WebGL2 では GLSL ES 3.00 で同一の見た目を再現。
+  - **HD-2D 風 Bloom**: 一部光源 (コイン、ファイア、Star) のみ加算合成。WebGPU 採用時は 16bit float の RenderTarget により低輝度ブルーミングまで階調を保てる (§11.2.1)。
+- 既定は OFF (パフォーマンス安全)。性能ばらつき対応 (§17.13) で自動 OFF にされる場合あり。
+- Canvas2D フォールバック時は UI から非表示にする (§11.2.2)。
 
 ## 11.11 HiDPI 対応
 

@@ -30,10 +30,38 @@ const orientation = matchMedia('(orientation: portrait)').matches ? 'portrait' :
 - 横持ちはゲームプレイ中心、縦持ちは UI 領域 + 仮想ジョイパッドを上下に配置する。
 - 縦持ちでは仮想ジョイパッドを画面下半分に集中、ゲーム画面は上半分。
 
-## 17.5 セーフエリア
+## 17.5 セーフエリア / 動的ビューポート (dvh/svh) 必須 (Round 2 / Issue #11)
 
 - iOS のホームバー、Android のジェスチャ領域を考慮し、`env(safe-area-inset-*)` を CSS で適用。
 - 仮想ボタンはセーフエリアの内側に配置。
+- **モバイル向けの viewport 単位は `dvh` / `svh` を必須採用**し、`vh` は使用禁止 (Round 2 / E4 専門家見解)。
+  - `100vh`: アドレスバーの伸縮に追従しない (旧仕様 / レガシー)。表示が突然 100vh 分だけ "ジャンプ" し、仮想ジョイパッドがアドレスバー裏に隠れる事故が発生する。
+  - **`100dvh` (dynamic viewport height)**: ブラウザ UI (アドレスバー / ツールバー) の表示状態に追従して動的に変化。ゲーム本体のラッパー要素 (`<div id="game-root">`) には `height: 100dvh` を当てる。
+  - **`100svh` (small viewport height)**: ブラウザ UI が常に表示された状態 (= 最も小さい高さ) を基準。仮想ジョイパッドのレイアウト基準として使用 (UI が引っ込んでもボタン位置は動かない)。
+  - **`100lvh` (large viewport height)**: 使用しない (UI が消えた最大高を返すため、コンテンツが UI 裏に隠れるリスク)。
+- 古環境フォールバック用に JS で `visualViewport.height` を購読し、`--app-height` CSS 変数に書き込む実装は MVP では不採用 (`dvh` / `svh` の Baseline Widely Available 化を前提)。万一サポート対象に古環境が入る場合のみ §17.11 のデバイス特有対応として再検討する。
+
+```css
+/* ui/global.css (抜粋) */
+:root {
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+}
+
+#game-root {
+  width: 100dvw;
+  height: 100dvh;        /* アドレスバー伸縮に追従 */
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+
+.virtual-pad {
+  position: fixed;
+  bottom: max(16px, var(--safe-bottom));
+  height: calc(100svh / 3);    /* UI が引っ込んでもパッド位置を固定 */
+}
+```
 
 ## 17.6 入力レイアウト
 
@@ -72,8 +100,8 @@ const orientation = matchMedia('(orientation: portrait)').matches ? 'portrait' :
 
 | デバイス | 注意 |
 |---|---|
-| iOS Safari | フルスクリーン非対応 (PWA 経由のみ)。viewport 高さは `100dvh` (Dynamic Viewport Height) を CSS で使うことで JS 介在なくネイティブ解決。`visualViewport` API は古環境フォールバック用 |
-| Android Chrome | `address bar` 伸縮で viewport 高さが変動 → 同じく `100dvh` で対応 |
+| iOS Safari | フルスクリーン非対応 (PWA 経由のみ, §94.10)。viewport 高さは `100dvh` / `100svh` を §17.5 のとおり使い分け、JS 介在なくネイティブ解決。`visualViewport` API は古環境フォールバック用 (MVP では不採用) |
+| Android Chrome | `address bar` 伸縮で viewport 高さが変動 → 同じく `100dvh` / `100svh` で対応 (§17.5) |
 | iPad (Pencil) | Pointer Events で stylus を判定し、ゲーム操作には使わせない (誤操作回避) |
 | Surface (Pen) | 同上 |
 | ゲーミングモニタ高 Hz | 描画補間で滑らかに (§94) |
