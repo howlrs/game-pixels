@@ -4,6 +4,7 @@ import {
   FILLED,
   X_MARKED,
   applyAt,
+  computeProgress,
   createBoard,
   getCell,
   isCleared,
@@ -78,5 +79,67 @@ describe('Board', () => {
     expect(applyAt(b, -1, 0, EMPTY, FILLED)).toBe(b);
     expect(applyAt(b, 2, 0, EMPTY, FILLED)).toBe(b);
     expect(applyAt(b, 0, 5, EMPTY, FILLED)).toBe(b);
+  });
+});
+
+describe('computeProgress (β3.0-γ)', () => {
+  test('全空盤面 → ratio 0', () => {
+    const b = createBoard(3, 3);
+    const sol: (0 | 1)[][] = [
+      [1, 0, 1],
+      [0, 1, 0],
+      [1, 0, 1],
+    ];
+    const p = computeProgress(b, sol);
+    expect(p.completedRows).toBe(0);
+    expect(p.completedCols).toBe(0);
+    expect(p.totalRows).toBe(3);
+    expect(p.totalCols).toBe(3);
+    expect(p.ratio).toBe(0);
+  });
+
+  test('完全クリア → ratio 1', () => {
+    let b = createBoard(2, 2);
+    b = setCell(b, 0, 0, FILLED);
+    b = setCell(b, 1, 1, FILLED);
+    const sol: (0 | 1)[][] = [
+      [1, 0],
+      [0, 1],
+    ];
+    const p = computeProgress(b, sol);
+    expect(p.completedRows).toBe(2);
+    expect(p.completedCols).toBe(2);
+    expect(p.ratio).toBe(1);
+  });
+
+  test('部分完成', () => {
+    // 3x3, sol = 主対角線
+    const sol: (0 | 1)[][] = [
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
+    ];
+    let b = createBoard(3, 3);
+    b = setCell(b, 0, 0, FILLED); // 主対角の左上だけ完璧
+    // この時点で row 0 と col 0 は完成 (FILLED + EMPTY×2 が正解と一致)
+    const p = computeProgress(b, sol);
+    expect(p.completedRows).toBeGreaterThanOrEqual(1);
+    expect(p.completedCols).toBeGreaterThanOrEqual(1);
+    expect(p.ratio).toBeGreaterThan(0);
+    expect(p.ratio).toBeLessThan(1);
+  });
+
+  test('X_MARKED は EMPTY と同じ扱い', () => {
+    let b = createBoard(2, 2);
+    b = setCell(b, 0, 0, FILLED);
+    b = setCell(b, 1, 0, X_MARKED);
+    b = setCell(b, 0, 1, X_MARKED);
+    b = setCell(b, 1, 1, FILLED);
+    const sol: (0 | 1)[][] = [
+      [1, 0],
+      [0, 1],
+    ];
+    const p = computeProgress(b, sol);
+    expect(p.ratio).toBe(1); // X は塗っていない扱いで一致
   });
 });

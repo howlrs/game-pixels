@@ -5,6 +5,7 @@ export {
   FILLED,
   X_MARKED,
   applyAt,
+  computeProgress,
   createBoard,
   getCell,
   indexOf,
@@ -12,7 +13,7 @@ export {
   resetBoard,
   setCell,
 } from './board.ts';
-export type { Board, CellState } from './board.ts';
+export type { Board, CellState, ProgressStats } from './board.ts';
 
 export { generateClueSet, generateLineClue } from './clue.ts';
 export type { Clue, ClueSet } from './clue.ts';

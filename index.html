@@ -119,6 +119,19 @@
         font-variant-numeric: tabular-nums;
         letter-spacing: 0.5px;
       }
+      /* β3.0-γ: 進捗% 表示 (黄色のアクセントで TIME と区別)
+         Gemini レビュー指摘: 100%/9%/0% で桁数が変わって TIME が横揺れする → 固定幅で防ぐ */
+      .hud-stats .hud-progress {
+        display: inline-block;
+        min-width: 4ch;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        color: #ffcc00;
+        font-weight: bold;
+        padding: 0 4px;
+        border-left: 1px solid rgba(255, 255, 255, 0.2);
+        margin-left: 2px;
+      }
       .hud-reset {
         background: #333;
         color: #fff;
