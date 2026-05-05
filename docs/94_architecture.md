@@ -255,9 +255,9 @@ iOS Safari は他ブラウザと比べて PWA 関連 API のサポートが限�
 | dev HTTPS | `@vitejs/plugin-basic-ssl` | `1.1.0` | dev | Gamepad API は secure context 必須 (§9.6.3 / §14.9) |
 | UI フレームワーク | `react` | `19.0.0` | dep | HUD / メニュー / 設定 (§14.2.2 ハイブリッド) |
 | UI フレームワーク | `react-dom` | `19.0.0` | dep | React 用 DOM レンダラ |
-| 状態管理 (UI) | `zustand` | `5.1.0` | dep | HUD / 設定の store (§14.2.2) |
+| 状態管理 (UI) | `zustand` | `5.0.13` | dep | HUD / 設定の store (§14.2.2)。Issue #10 起票時の `5.1.0` は npm 未公開だったため `5.0.13` (2026-05 時点 v5 系最新) に補正 |
 | ゲームレンダラ | `pixi.js` | `8.2.1` | dep | WebGPU 既定 / WebGL2 / Canvas2D の透過切替 (§11.2) |
-| ECS | `bitecs` | `0.9.6` | dep | TypedArray SoA、systems pipeline (§14.2 / §14.2.1) |
+| ECS | `bitecs` | `0.4.0` | dep | TypedArray SoA、systems pipeline (§14.2 / §14.2.1)。Issue #10 起票時の `0.9.6` は npm 未公開だったため `0.4.0` (2026-05 時点最新) に補正 |
 | Web Audio | `howler` | `2.2.4` | dep | BGM / SE 軽量再生 (§92) |
 | バリデーション | `valibot` | `0.33.0` | dep | ステージ / セーブ / リプレイ / 入力スナップショット (§14.2.3) |
 | PWA | `vite-plugin-pwa` | `0.20.0` | dev | Service Worker 自動生成 (§14.10) |
@@ -269,17 +269,22 @@ iOS Safari は他ブラウザと比べて PWA 関連 API のサポートが限�
 | 物理 | (Custom AABB) | (本リポジトリ実装) | — | 整数 + subpixel 自前実装 (§20)、汎用エンジンは不採用 (§2.1.2) |
 | CI Action | `actions/checkout` | `v4.1.6` | (CI) | GitHub Actions 用 |
 | CI Action | `oven-sh/setup-bun` | `v2.0.0` | (CI) | CI 上での Bun 環境構築 |
+| 型定義 (Bun 内蔵 API) | `@types/bun` | `1.3.13` | dev | `bun:test` 等の Bun 内蔵 API の型。Round 3 / 実装スケルトン構築時に追加 |
+| Vite React プラグイン | `@vitejs/plugin-react` | `4.3.1` | dev | React 19 用の Vite プラグイン。Round 3 / 実装スケルトン構築時に追加 |
+| 型定義 (Howler) | `@types/howler` | `2.2.11` | dev | Howler 用 |
+| 型定義 (React) | `@types/react` | `19.0.0` | dev | React 19 用 |
+| 型定義 (React DOM) | `@types/react-dom` | `19.0.0` | dev | React 19 用 |
 
 ### 14.14.2 dependencies / devDependencies の分離
 
 - **dependencies (production)**: `pixi.js`, `react`, `react-dom`, `zustand`, `bitecs`, `valibot`, `howler`, `i18next`, `react-i18next`
-- **devDependencies**: `typescript`, `vite`, `@vitejs/plugin-basic-ssl`, `vite-plugin-pwa`, `@biomejs/biome`, `@playwright/test`
+- **devDependencies**: `typescript`, `vite`, `@vitejs/plugin-basic-ssl`, `@vitejs/plugin-react`, `vite-plugin-pwa`, `@biomejs/biome`, `@playwright/test`, `@types/bun`, `@types/howler`, `@types/react`, `@types/react-dom`
 - **engines**: `package.json` の `engines.bun = "1.2.0"` を必須宣言
 
 ### 14.14.3 運用ポリシー
 
 - すべての依存に **絶対バージョン** (`"react": "19.0.0"`)。`^` `~` は禁止。
-- ロックファイル `bun.lockb` を Git 管理。
+- ロックファイル `bun.lock` (Bun 1.3+ の text 形式) を Git 管理。**Bun 1.2 時代の binary 形式 `bun.lockb` は使わない** (Round 3 / 実装スケルトン構築で確認、`bun.lock` は JSON-like で diff 可能・レビューに有利)。
 - 依存追加は `bun add <pkg>@<version>` で常に絶対指定。
 - **Renovate** で:
   - **パッチ** (セキュリティ含む): 即時/週次の自動 PR、自動 merge (E2E 通過時のみ)
@@ -331,13 +336,21 @@ iOS Safari は他ブラウザと比べて PWA 関連 API のサポートが限�
 
 ```bash
 # 新規プロジェクトの初回セットアップ
-bun add react@19.0.0 react-dom@19.0.0 zustand@5.1.0 \
-        pixi.js@8.2.1 bitecs@0.9.6 howler@2.2.4 \
+bun add react@19.0.0 react-dom@19.0.0 zustand@5.0.13 \
+        pixi.js@8.2.1 bitecs@0.4.0 howler@2.2.4 \
         valibot@0.33.0 i18next@23.11.0 react-i18next@14.1.2
 
-bun add -d typescript@5.8.2 vite@6.0.0 @vitejs/plugin-basic-ssl@1.1.0 \
-           vite-plugin-pwa@0.20.0 @biomejs/biome@1.8.0 @playwright/test@1.45.0
+bun add -d typescript@5.8.2 vite@6.0.0 \
+           @vitejs/plugin-react@4.3.1 @vitejs/plugin-basic-ssl@1.1.0 \
+           vite-plugin-pwa@0.20.0 @biomejs/biome@1.8.0 \
+           @playwright/test@1.45.0 \
+           @types/bun@1.3.13 @types/howler@2.2.11 \
+           @types/react@19.0.0 @types/react-dom@19.0.0
 ```
+
+**TypeScript 設定の必須項目** (Round 3 / 実装スケルトン構築時に確認):
+- `compilerOptions.allowImportingTsExtensions = true`: `import { x } from './foo.ts'` 形式を許可。`verbatimModuleSyntax` と `isolatedModules` を併用する場合に必須
+- `compilerOptions.types = ["vite/client", "@types/bun"]`: Vite client + Bun 内蔵 API の型を解決
 
 既存プロジェクトに本ポリシー (絶対バージョン化) を適用する場合は、`npm-check-updates` の `-E` (`--exact`) で一括変換するのが OS ポータブル (sed の BSD/GNU 差異を回避):
 
