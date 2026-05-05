@@ -1,28 +1,28 @@
-// docs §14.2.2: React ルート。phase に応じて TapToStart / GameView (+HUD) / ResumeGate を切り替える。
-// ゲーム本体 (Pixi.js + 物理ループ) は GameView の ref 経由で起動される。
+// docs §14.2.2 App: phase 駆動で TapToStart / PuzzleSelect / GameView (+HUD/Modes/Clear) を切り替え。
 
 import { useCallback, useEffect, useState } from 'react';
 import { mountVisibilityHandler } from '@platform/visibility.ts';
 import { isStandalone, mountInstallPromptCapture } from '@platform/install.ts';
-import type { GameHandle } from '@render/mount.ts';
+import { mountAutoSave, recordClear } from '@save/index.ts';
+import { useGame } from '@game/index.ts';
+import type { GameHandle } from '@render/index.ts';
+import { ClearOverlay } from './ClearOverlay.tsx';
 import { GameView } from './GameView.tsx';
 import { Hud } from './Hud.tsx';
-import { ResumeGate } from './ResumeGate.tsx';
+import { ModeButtons } from './ModeButtons.tsx';
+import { PuzzleSelect } from './PuzzleSelect.tsx';
 import { TapToStartGate } from './TapToStartGate.tsx';
-import { useHud } from './hud-store.ts';
 
 export function App() {
-  const phase = useHud((s) => s.phase);
-  const [game, setGame] = useState<GameHandle | null>(null);
+  const phase = useGame((s) => s.phase);
+  const setPhase = useGame((s) => s.setPhase);
+  const [_game, setGame] = useState<GameHandle | null>(null);
 
   useEffect(() => {
-    // §92.3.2: visibilitychange を登録し、unmount 時に必ず解除 (Step A / Gemini Pro 指摘でリーク対策)。
     return mountVisibilityHandler();
   }, []);
 
   useEffect(() => {
-    // §13.9.3 / §14.10.1: beforeinstallprompt を捕捉 (Chrome 系のみ)。
-    // 実際の促進モーダル UI は Round 5 以降で実装。
     const detach = mountInstallPromptCapture();
     if (isStandalone()) {
       console.info('[install] running in PWA standalone mode');
@@ -30,24 +30,43 @@ export function App() {
     return detach;
   }, []);
 
+  // Round 6 / Gemini Pro 指摘: autosave 結合 (LocalStorage への debounced save + visibilitychange flush)
+  useEffect(() => {
+    return mountAutoSave();
+  }, []);
+
+  // クリア時にベストタイム記録 (cleared phase に遷移した瞬間のみ)
+  useEffect(() => {
+    if (phase !== 'cleared') return;
+    const s = useGame.getState();
+    if (s.currentPuzzle) {
+      recordClear(s.currentPuzzle.meta.id, s.elapsedMs);
+    }
+  }, [phase]);
+
   const handleStart = useCallback(() => {
-    // 将来: AudioContext.resume() (§12.3.1) を同期で呼ぶ
-    game?.start();
-  }, [game]);
+    setPhase('puzzle-select');
+  }, [setPhase]);
 
-  const handleResume = useCallback(() => {
-    // 将来: AudioContext.resume() を同期で呼ぶ (§12.3.2)
-    game?.start();
-  }, [game]);
+  const handlePuzzleLoaded = useCallback(() => {
+    // GameStore.loadPuzzle が phase='playing' に遷移済
+  }, []);
 
-  // Canvas は phase に関係なく常時マウント (Tap-to-Start ゲートの裏で初期化)。
-  // これにより最初のタップ後に即ゲームが動き始められる。
+  const handleReturnToSelect = useCallback(() => {
+    setPhase('puzzle-select');
+  }, [setPhase]);
+
+  // GameView は playing / paused / cleared の間だけマウント
+  const showGameView = phase === 'playing' || phase === 'paused' || phase === 'cleared';
+
   return (
     <>
-      <GameView onMounted={setGame} />
-      {phase === 'playing' ? <Hud /> : null}
+      {showGameView ? <GameView onMounted={setGame} /> : null}
+      {showGameView ? <Hud /> : null}
+      {showGameView ? <ModeButtons /> : null}
       {phase === 'tap-to-start' ? <TapToStartGate onStart={handleStart} /> : null}
-      {phase === 'paused' ? <ResumeGate onResume={handleResume} /> : null}
+      {phase === 'puzzle-select' ? <PuzzleSelect onLoaded={handlePuzzleLoaded} /> : null}
+      {phase === 'cleared' ? <ClearOverlay onReturn={handleReturnToSelect} /> : null}
     </>
   );
 }

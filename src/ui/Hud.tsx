@@ -1,22 +1,35 @@
-// docs §14.2.2 / §17.10: HUD は React コンポーネント、Zustand store から読み取り。
-// 物理 frame 終了時に Vanilla 側から store に Push されるため、ここは購読のみ。
+// docs §10 HUD: 経過時間 + 現在モード + リセットボタン。
 
-import { useHud } from './hud-store.ts';
+import { useGame } from '@game/index.ts';
+
+function formatTime(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const mm = Math.floor(totalSec / 60).toString().padStart(2, '0');
+  const ss = (totalSec % 60).toString().padStart(2, '0');
+  return `${mm}:${ss}`;
+}
 
 export function Hud() {
-  const score = useHud((s) => s.score);
-  const coins = useHud((s) => s.coins);
-  const lives = useHud((s) => s.lives);
-  const timer = useHud((s) => s.timer);
-  const fps = useHud((s) => s.fps);
+  const phase = useGame((s) => s.phase);
+  const elapsed = useGame((s) => s.elapsedMs);
+  const puzzle = useGame((s) => s.currentPuzzle);
+  const reset = useGame((s) => s.resetBoard);
+
+  if (phase === 'tap-to-start' || phase === 'puzzle-select') return null;
 
   return (
     <div className="hud" role="status" aria-live="polite">
-      <span>SCORE {score.toString().padStart(6, '0')}</span>
-      <span>COIN ×{coins.toString().padStart(2, '0')}</span>
-      <span>LIFE ×{lives}</span>
-      <span>TIME {timer.toString().padStart(3, '0')}</span>
-      <span>FPS {fps.toFixed(0)}</span>
+      <span>{puzzle?.meta.title ?? ''}</span>
+      <span>TIME {formatTime(elapsed)}</span>
+      <button
+        type="button"
+        onClick={() => {
+          if (window.confirm('盤面を最初からやり直しますか?')) reset();
+        }}
+        className="hud-reset"
+      >
+        リセット
+      </button>
     </div>
   );
 }

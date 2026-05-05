@@ -1,3 +1,2 @@
-// docs §14.1 save/: セーブバックエンド (IndexedDB / LocalStorage / Cloud) + Valibot スキーマ。
-// 実装スケルトン段階では空。
-export {};
+// docs §14.1 save/: セーブ統合
+export { getSavedData, mountAutoSave, recordClear } from './auto-save.ts';

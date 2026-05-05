@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "id": "heart",
+    "title": "ハート",
+    "width": 5,
+    "height": 5,
+    "difficulty": "easy",
+    "estimatedSolveSeconds": 60,
+    "category": "5x5",
+    "description": "シンプルなハートマーク"
+  },
+  "solution": [
+    [0, 1, 0, 1, 0],
+    [1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 0],
+    [0, 0, 1, 0, 0]
+  ],
+  "rowClues": [[1, 1], [5], [5], [3], [1]],
+  "colClues": [[2], [4], [4], [4], [2]],
+  "isUniqueSolution": true
+}

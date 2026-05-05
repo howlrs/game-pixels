@@ -1,24 +1,40 @@
-// docs §14.1 core/: 物理、衝突、入力スナップショット、シード乱数 (DOM 非依存)。
+// docs §14.1 core/: 盤面モデル / ヒント / パズル / セーブ (DOM 非依存)
 
-export { snapToPixel, subPixelOffsetForRenderer } from './coords.ts';
-export { createGameWorld, AABB, Position, Sprite, Velocity, MAX_ENTITIES } from './world.ts';
-export type { GameWorld } from './world.ts';
-export { PHYSICS_DT_MS, PHYSICS_HZ, MAX_FRAME_MS, createFixedStepLoop } from './loop.ts';
-export type { FixedStepLoopConfig, FixedStepLoopHandle } from './loop.ts';
-export { createInputBuffer } from './input/buffer.ts';
-export type { InputBuffer, LogicalKey } from './input/buffer.ts';
-export { NEUTRAL, deriveButtonState } from './input/snapshot.ts';
-export type { InputSnapshot, ButtonState } from './input/snapshot.ts';
 export {
-  createPlayerState,
-  stepPlayerInputAndVelocity,
-  tickPlayerJumpBuffer,
-  toPx,
-  updatePlayerGroundState,
-} from './physics/player.ts';
-export type { PlayerPhysicsState } from './physics/player.ts';
-export { resolveTileCollision } from './physics/tile-collision.ts';
-export type { AabbBody, CollisionResult } from './physics/tile-collision.ts';
-export { loadStage, tileAt, StageLoadError, validateCrossFields } from './stage/loader.ts';
-export { StageSchema, TILE_KINDS, isTileKind } from './stage/schema.ts';
-export type { Stage, StageArea, TileKind } from './stage/schema.ts';
+  EMPTY,
+  FILLED,
+  X_MARKED,
+  applyAt,
+  createBoard,
+  getCell,
+  indexOf,
+  isCleared,
+  resetBoard,
+  setCell,
+} from './board.ts';
+export type { Board, CellState } from './board.ts';
+
+export { generateClueSet, generateLineClue } from './clue.ts';
+export type { Clue, ClueSet } from './clue.ts';
+
+export {
+  PuzzleDataSchema,
+  PuzzleIndexSchema,
+  PuzzleLoadError,
+  flattenSolution,
+  loadPuzzle,
+  loadPuzzleIndex,
+  validatePuzzleConsistency,
+} from './puzzle.ts';
+export type { DifficultyLevel, PuzzleCategory, PuzzleData, PuzzleIndex, PuzzleMeta } from './puzzle.ts';
+
+export {
+  CURRENT_SCHEMA_VERSION,
+  InMemoryBackend,
+  LocalStorageBackend,
+  SaveDataSchema,
+  debounce,
+  defaultSaveData,
+  loadAndMigrate,
+} from './save.ts';
+export type { ActivePuzzleSave, PuzzleClearRecord, SaveBackend, SaveData, UserSettings } from './save.ts';

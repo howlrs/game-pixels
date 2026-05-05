@@ -98,12 +98,13 @@ export interface PuzzleData {
     [0, 0, 1, 0, 0]
   ],
   "rowClues": [[1, 1], [5], [5], [3], [1]],
-  "colClues": [[2], [4], [3, 1], [4], [2]],
+  "colClues": [[2], [4], [4], [4], [2]],
   "isUniqueSolution": true
 }
 ```
 
 > 注: 上記 `solution` のヒントが本当に一意解か (= 別の塗り方では同じヒントにならないか) は **生成ツール側で検証必須**。本例は概念説明用 (実 MVP の 20 個は Round 6 で別途生成)。
+> ※ Round 6 実装時、`generateClueSet` のテストで `colClues[2]` を `[3, 1]` と誤記していたが正しくは `[4]` (列 2 は row 1-4 まで連続して塗) と判明、本ファイルも同時修正済。
 
 ## 8.5 パズルセットのインデックス (`public/puzzles/index.json`)
 
