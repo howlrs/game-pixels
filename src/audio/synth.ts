@@ -141,3 +141,17 @@ export function _resetForTest(): void {
   seVolume = 0.7;
   muted = false;
 }
+
+/**
+ * β11.0-α: BGM モジュールが AudioContext を共有するための getter。
+ * synth.ts と bgm.ts で別 AudioContext を持つと iOS Safari で 2 つ目の生成が失敗するケースあり。
+ * 必ず初期化済 (initAudioOnUserGesture 後) のものを返す (未初期化なら null)。
+ */
+export function getAudioContext(): AudioContext | null {
+  return ctx;
+}
+
+/** β11.0-α: master 音量を BGM 側で参照するための getter */
+export function getMasterVolume(): number {
+  return masterVolume;
+}

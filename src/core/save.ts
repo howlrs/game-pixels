@@ -44,6 +44,8 @@ const UserSettingsSchema = v.object({
     bgm: v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
     se: v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
     muteOnBlur: v.boolean(),
+    // β11.0-α: BGM ON/OFF (デフォルト false)。後方互換のため optional。
+    bgmEnabled: v.optional(v.boolean()),
   }),
   a11y: v.object({
     reduceMotion: v.boolean(),
@@ -71,7 +73,7 @@ export function defaultSaveData(): SaveData {
     activePuzzles: {},
     clearRecords: {},
     settings: {
-      audio: { master: 0.7, bgm: 0.5, se: 0.7, muteOnBlur: true },
+      audio: { master: 0.7, bgm: 0.5, se: 0.7, muteOnBlur: true, bgmEnabled: false },
       a11y: { reduceMotion: false, highContrast: false },
     },
     installedAt: Date.now(),

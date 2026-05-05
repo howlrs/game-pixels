@@ -12,7 +12,9 @@
 
 import { useGame, type AppPhase } from '@game/index.ts';
 import { EMPTY, FILLED, X_MARKED, type Board, type CellState } from '@core/index.ts';
-import { initAudioOnUserGesture, playSe } from './synth.ts';
+import { getAudioContext, initAudioOnUserGesture, playSe } from './synth.ts';
+import { attachAudioContext, startBgm, stopBgm } from './bgm.ts';
+import { useAudio } from './store.ts';
 
 let attached: (() => void) | null = null;
 
@@ -23,10 +25,17 @@ export function mountAudio(): () => void {
   let prevPhase: AppPhase | null = null;
 
   const unsub = useGame.subscribe((s) => {
-    // phase 遷移を先に処理 (cleared 突入時 SE)
+    // phase 遷移を先に処理 (cleared 突入時 SE + BGM 制御)
     if (s.phase !== prevPhase) {
       if (s.phase === 'cleared') {
         playSe('clear');
+      }
+      // β11.0-α: BGM 連動 — playing で start, それ以外は stop
+      const wantPlay = s.phase === 'playing' && useAudio.getState().bgmEnabled;
+      if (wantPlay) {
+        void startBgm();
+      } else {
+        stopBgm();
       }
       prevPhase = s.phase;
     }
@@ -65,7 +74,10 @@ function seForTransition(before: CellState, after: CellState): 'fill' | 'mark' |
 
 /**
  * Tap to Start などのユーザー操作時に呼んで AudioContext を確実に初期化する。
+ * β11.0-α: 初期化後の AudioContext を BGM モジュールに共有 (synth と同一 ctx を使う)。
  */
 export function bootAudioOnGesture(): void {
   initAudioOnUserGesture();
+  const ctx = getAudioContext();
+  if (ctx) attachAudioContext(ctx);
 }

@@ -13,7 +13,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { setVolume } from '@audio/index.ts';
+import { setBgmMaster, setVolume, useAudio } from '@audio/index.ts';
 import { updateHighContrast, updateReduceMotion } from '@platform/index.ts';
 import { getSavedData, updateSettings } from '@save/index.ts';
 
@@ -29,6 +29,11 @@ export function SettingsModal({ open, onClose }: Props) {
   const [muteOnBlur, setMuteOnBlur] = useState(() => initial.audio.muteOnBlur);
   const [reduceMotion, setReduceMotion] = useState(() => initial.a11y.reduceMotion);
   const [highContrast, setHighContrast] = useState(() => initial.a11y.highContrast);
+  // β11.0-α: BGM 設定 (Zustand 経由 — 開閉中も状態保持)
+  const bgmEnabled = useAudio((s) => s.bgmEnabled);
+  const setBgmEnabled = useAudio((s) => s.setBgmEnabled);
+  const bgmVolume = useAudio((s) => s.bgmVolume);
+  const setBgmVolumeAction = useAudio((s) => s.setBgmVolume);
 
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -92,6 +97,10 @@ export function SettingsModal({ open, onClose }: Props) {
       if (typeof partial.master === 'number') vol.master = partial.master;
       if (typeof partial.se === 'number') vol.se = partial.se;
       setVolume(vol);
+    }
+    // β11.0-α: master 音量を BGM 側にも反映
+    if (typeof partial.master === 'number') {
+      setBgmMaster(partial.master);
     }
   }
 
@@ -177,6 +186,34 @@ export function SettingsModal({ open, onClose }: Props) {
               }}
             />
             <span>バックグラウンド時にミュート</span>
+          </label>
+          {/* β11.0-α: BGM 設定 (デフォルト OFF) */}
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={bgmEnabled}
+              onChange={(e) => {
+                setBgmEnabled(e.target.checked);
+                updateSettings({ audio: { bgmEnabled: e.target.checked } });
+              }}
+            />
+            <span>BGM (集中向けアンビエント)</span>
+          </label>
+          <label className="settings-row">
+            <span>BGM 音量</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={Math.round(bgmVolume * 100)}
+              disabled={!bgmEnabled}
+              onChange={(e) => {
+                const v = Number(e.target.value) / 100;
+                setBgmVolumeAction(v);
+                updateSettings({ audio: { bgm: v } });
+              }}
+            />
+            <output>{Math.round(bgmVolume * 100)}</output>
           </label>
         </section>
 
