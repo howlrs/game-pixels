@@ -68,9 +68,28 @@ interface GameStoreState {
   historyCursor: number;
 }
 
+/**
+ * β8.0-β: 永続化された途中状態の復元用入力 (auto-save → store hydration)。
+ * すべて optional な「外部からの追加情報」: 提供されればロード時に復元、無ければ新規開始。
+ */
+export interface RestoreSnapshot {
+  cells: ReadonlyArray<CellState>;
+  rowMarks: ReadonlyArray<ReadonlyArray<boolean>>;
+  colMarks: ReadonlyArray<ReadonlyArray<boolean>>;
+  startedAtMs: number;
+  elapsedMs: number;
+  isPaused: boolean;
+  history?: ReadonlyArray<{
+    cells: ReadonlyArray<CellState>;
+    rowMarks: ReadonlyArray<ReadonlyArray<boolean>>;
+    colMarks: ReadonlyArray<ReadonlyArray<boolean>>;
+  }>;
+  historyCursor?: number;
+}
+
 interface GameStoreActions {
   setPhase: (phase: AppPhase) => void;
-  loadPuzzle: (puzzle: PuzzleData) => void;
+  loadPuzzle: (puzzle: PuzzleData, restore?: RestoreSnapshot) => void;
   setCursor: (pos: CursorPos | null) => void;
   setMode: (mode: InputMode) => void;
   /** 単発タップ: トグル仕様 (同状態 → 空に戻る) */
@@ -160,9 +179,66 @@ export const useGame = create<GameStore>((set, get) => ({
 
   setPhase: (phase) => set({ phase }),
 
-  loadPuzzle: (puzzle) => {
+  loadPuzzle: (puzzle, restore) => {
     const initialBoard = createBoard(puzzle.meta.width, puzzle.meta.height);
     const initialMarks = createMarks(puzzle);
+
+    // β8.0-β: restore snapshot があれば途中状態を復元
+    if (restore && restore.cells.length === puzzle.meta.width * puzzle.meta.height) {
+      const restoredBoard: Board = {
+        width: puzzle.meta.width,
+        height: puzzle.meta.height,
+        cells: restore.cells.slice(),
+      };
+      const restoredMarks: ClueMarkState = {
+        rowMarks: restore.rowMarks.map((r) => r.slice()),
+        colMarks: restore.colMarks.map((c) => c.slice()),
+      };
+      // history も復元 (失敗時は現状の board だけ 1 履歴)
+      let restoredHistory: ReadonlyArray<{ board: Board; marks: ClueMarkState }>;
+      let restoredCursor = 0;
+      const historySrc = restore.history;
+      if (
+        historySrc &&
+        historySrc.length > 0 &&
+        typeof restore.historyCursor === 'number' &&
+        restore.historyCursor >= 0 &&
+        restore.historyCursor < historySrc.length
+      ) {
+        restoredHistory = historySrc.map((snap) => ({
+          board: {
+            width: puzzle.meta.width,
+            height: puzzle.meta.height,
+            cells: snap.cells.slice(),
+          },
+          marks: {
+            rowMarks: snap.rowMarks.map((r) => r.slice()),
+            colMarks: snap.colMarks.map((c) => c.slice()),
+          },
+        }));
+        restoredCursor = restore.historyCursor;
+      } else {
+        restoredHistory = [{ board: restoredBoard, marks: restoredMarks }];
+      }
+
+      set({
+        currentPuzzle: puzzle,
+        flatSolution: flattenSolution(puzzle),
+        board: restoredBoard,
+        marks: restoredMarks,
+        cursor: { col: 0, row: 0 },
+        mode: 'fill',
+        startedAtMs: restore.startedAtMs,
+        elapsedMs: restore.elapsedMs,
+        drag: null,
+        phase: restore.isPaused ? 'paused' : 'playing',
+        history: restoredHistory,
+        historyCursor: restoredCursor,
+      });
+      return;
+    }
+
+    // 通常: 新規開始
     set({
       currentPuzzle: puzzle,
       flatSolution: flattenSolution(puzzle), // Round 6 / Gemini Pro 指摘: 入力時の都度生成回避

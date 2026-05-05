@@ -8,6 +8,14 @@ export const CURRENT_SCHEMA_VERSION = 1;
 
 const CellStateSchema = v.picklist(['empty', 'filled', 'x'] as const);
 
+// β8.0-β: Undo/Redo 履歴の永続化用 snapshot Schema
+// board cells と marks のペア (game/store.ts の HistorySnapshot に対応)
+const HistorySnapshotSchema = v.object({
+  cells: v.array(CellStateSchema),
+  rowMarks: v.array(v.array(v.boolean())),
+  colMarks: v.array(v.array(v.boolean())),
+});
+
 const ActivePuzzleSchema = v.object({
   puzzleId: v.string(),
   cells: v.array(CellStateSchema),
@@ -16,6 +24,10 @@ const ActivePuzzleSchema = v.object({
   startedAtMs: v.pipe(v.number(), v.integer(), v.minValue(0)),
   elapsedMs: v.pipe(v.number(), v.minValue(0)),
   isPaused: v.boolean(),
+  // β8.0-β: Undo/Redo 履歴 (optional, 後方互換)
+  // 古い保存データには無いので optional + default の代わりに optional で扱う
+  history: v.optional(v.array(HistorySnapshotSchema)),
+  historyCursor: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
 });
 
 const PuzzleClearRecordSchema = v.object({
@@ -51,6 +63,7 @@ export type SaveData = v.InferOutput<typeof SaveDataSchema>;
 export type ActivePuzzleSave = v.InferOutput<typeof ActivePuzzleSchema>;
 export type PuzzleClearRecord = v.InferOutput<typeof PuzzleClearRecordSchema>;
 export type UserSettings = v.InferOutput<typeof UserSettingsSchema>;
+export type HistorySnapshotSave = v.InferOutput<typeof HistorySnapshotSchema>;
 
 export function defaultSaveData(): SaveData {
   return {

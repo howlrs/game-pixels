@@ -40,7 +40,24 @@ export function PuzzleSelect({ onLoaded }: Props) {
     try {
       const url = `/puzzles/${p.category}/${p.id}.json`;
       const data = await loadPuzzle(url);
-      useGame.getState().loadPuzzle(data);
+      // β8.0-β: 途中状態 (activePuzzles) があれば自動復元
+      const saved = getSavedData()?.activePuzzles?.[p.id];
+      if (saved) {
+        // exactOptionalPropertyTypes 対応: 未定義 key を含めない形で再構築
+        const restore: import('@game/index.ts').RestoreSnapshot = {
+          cells: saved.cells,
+          rowMarks: saved.rowMarks,
+          colMarks: saved.colMarks,
+          startedAtMs: saved.startedAtMs,
+          elapsedMs: saved.elapsedMs,
+          isPaused: saved.isPaused,
+          ...(saved.history && saved.history.length > 0 ? { history: saved.history } : {}),
+          ...(typeof saved.historyCursor === 'number' ? { historyCursor: saved.historyCursor } : {}),
+        };
+        useGame.getState().loadPuzzle(data, restore);
+      } else {
+        useGame.getState().loadPuzzle(data);
+      }
       onLoaded();
     } catch (e) {
       setError(`パズルロード失敗: ${String(e)}`);
