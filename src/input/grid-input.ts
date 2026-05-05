@@ -103,6 +103,8 @@ export function attachGridInput(app: Application, getLayout: () => GridLayout): 
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     const phase = useGame.getState().phase;
     if (phase !== 'playing') return;
+    // β5.0-α: Cmd/Ctrl/Meta が押されている場合は他のショートカット (Undo/Redo 等) に譲る
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     const layout = getLayout();
     const cur = useGame.getState().cursor ?? { col: 0, row: 0 };
