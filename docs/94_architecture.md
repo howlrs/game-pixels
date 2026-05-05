@@ -225,26 +225,127 @@ platform は全モジュールから利用される (環境検出のみ)
 - Pause 中は物理停止、UI のみアクティブ。
 - StageClear → WorldMap 遷移時に Save トリガー。
 
-## 14.14 確定技術スタック (2026-05-05) — Round 2 暫定 / Issue #10 で正式化
+## 14.14 確定技術スタック (2026-05-05) — Round 2 (Issue #10 / T5)
 
-Round 2 / Issue #11 で採否決定したコア技術の **暫定リスト** を以下に置く。各バージョン番号と採否一覧の **正式な表**、Renovate 設定、運用ポリシー (絶対バージョン固定 / `^` `~` 禁止 等) は Issue #10 (T5) を別 PR で取り込む際に確定する。本セクションは Issue #10 PR で表ごと差し替える前提のプレースホルダ。
+本作の **2026-05-05 時点の確定バージョン** を以下に固定する。すべての主要依存に **絶対バージョン (caret `^` / tilde `~` 禁止)** を記載し、`bun.lockb` を Git 管理する。月次マイナー更新 + 即時/週次のセキュリティパッチを Renovate で運用する (§14.14.3)。
 
-| 区分 | パッケージ | 用途 |
-| :--- | :--- | :--- |
-| ランタイム / PM | Bun | パッケージ管理 + テストランナー (§14.8) + dev スクリプト |
-| 言語 | TypeScript | `strict: true`, `exactOptionalPropertyTypes` |
-| ビルド | Vite | dev サーバ (https) + 本番ビルド (§14.9) |
-| UI フレームワーク | React + react-dom | HUD / メニュー / 設定 (§14.2.2 ハイブリッド) |
-| 状態管理 (UI) | Zustand | HUD / 設定の store (§14.2.2) |
-| ゲームレンダラ | Pixi.js v8 | WebGPU 既定 / WebGL2 / Canvas2D の透過切替 (§11.2) |
-| ECS | bitECS | TypedArray SoA、systems pipeline (§14.2 / §14.2.1) |
-| Web Audio | Howler | BGM / SE 軽量再生 (§92) |
-| バリデーション | Valibot | ステージ / セーブ / リプレイ / 入力スナップショット (§14.2.3) |
-| PWA | vite-plugin-pwa | Service Worker 自動生成 (§14.10) |
-| i18n | i18next + react-i18next | 多言語 UI (§17.9) |
-| リンタ / フォーマッタ | Biome | ESLint / Prettier 代替 |
-| E2E テスト | @playwright/test | クロスブラウザ E2E + WebGPU/WebGL2/Canvas2D 3 系統 (§14.8) |
-| ユニットテスト | bun test | Bun 内蔵ランナー (§14.8) |
-| 物理 | (Custom AABB) | 整数 + subpixel 自前実装 (§20)、汎用エンジンは不採用 |
+### 14.14.1 確定スタック表
 
-> **注**: 上表は Round 2 の Issue #11 を反映した暫定。**バージョン番号の絶対固定、Renovate 運用ポリシー、`engines.bun` の指定**は Issue #10 (T5) の PR で本セクションを正式表に差し替える際に確定する。それまでの間、`docs/00_index.md` 以下の他章では本表のパッケージ名のみを参照し、バージョン番号への直接参照は避ける。
+| 区分 | パッケージ | バージョン | dep / dev | 用途 |
+| :--- | :--- | :--- | :--- | :--- |
+| ランタイム / PM | `bun` | `1.2.0` | (engines) | パッケージ管理 + テストランナー (§14.8) + dev スクリプト |
+| 言語 | `typescript` | `5.8.2` | dev | `strict: true`, `exactOptionalPropertyTypes: true` |
+| ビルド | `vite` | `6.0.0` | dev | dev サーバ (HTTPS) + 本番ビルド (§14.9) |
+| dev HTTPS | `@vitejs/plugin-basic-ssl` | `1.1.0` | dev | Gamepad API は secure context 必須 (§9.6.3 / §14.9) |
+| UI フレームワーク | `react` | `19.0.0` | dep | HUD / メニュー / 設定 (§14.2.2 ハイブリッド) |
+| UI フレームワーク | `react-dom` | `19.0.0` | dep | React 用 DOM レンダラ |
+| 状態管理 (UI) | `zustand` | `5.1.0` | dep | HUD / 設定の store (§14.2.2) |
+| ゲームレンダラ | `pixi.js` | `8.2.1` | dep | WebGPU 既定 / WebGL2 / Canvas2D の透過切替 (§11.2) |
+| ECS | `bitecs` | `0.9.6` | dep | TypedArray SoA、systems pipeline (§14.2 / §14.2.1) |
+| Web Audio | `howler` | `2.2.4` | dep | BGM / SE 軽量再生 (§92) |
+| バリデーション | `valibot` | `0.33.0` | dep | ステージ / セーブ / リプレイ / 入力スナップショット (§14.2.3) |
+| PWA | `vite-plugin-pwa` | `0.20.0` | dev | Service Worker 自動生成 (§14.10) |
+| i18n | `i18next` | `23.11.0` | dep | 多言語 UI コア (§17.9) |
+| i18n (React) | `react-i18next` | `14.1.2` | dep | React 用翻訳バインディング |
+| リンタ / フォーマッタ | `@biomejs/biome` | `1.8.0` | dev | ESLint / Prettier 代替 (高速) |
+| E2E テスト | `@playwright/test` | `1.45.0` | dev | クロスブラウザ E2E + WebGPU/WebGL2/Canvas2D 3 系統 (§14.8) |
+| ユニットテスト | `bun test` | (内蔵) | — | Bun 内蔵ランナー (§14.8) |
+| 物理 | (Custom AABB) | (本リポジトリ実装) | — | 整数 + subpixel 自前実装 (§20)、汎用エンジンは不採用 (§2.1.2) |
+| CI Action | `actions/checkout` | `v4.1.6` | (CI) | GitHub Actions 用 |
+| CI Action | `oven-sh/setup-bun` | `v2.0.0` | (CI) | CI 上での Bun 環境構築 |
+
+### 14.14.2 dependencies / devDependencies の分離
+
+- **dependencies (production)**: `pixi.js`, `react`, `react-dom`, `zustand`, `bitecs`, `valibot`, `howler`, `i18next`, `react-i18next`
+- **devDependencies**: `typescript`, `vite`, `@vitejs/plugin-basic-ssl`, `vite-plugin-pwa`, `@biomejs/biome`, `@playwright/test`
+- **engines**: `package.json` の `engines.bun = "1.2.0"` を必須宣言
+
+### 14.14.3 運用ポリシー
+
+- すべての依存に **絶対バージョン** (`"react": "19.0.0"`)。`^` `~` は禁止。
+- ロックファイル `bun.lockb` を Git 管理。
+- 依存追加は `bun add <pkg>@<version>` で常に絶対指定。
+- **Renovate** で:
+  - **パッチ** (セキュリティ含む): 即時/週次の自動 PR、自動 merge (E2E 通過時のみ)
+  - **マイナー**: 月次の自動 PR、レビュー後 merge
+  - **メジャー**: 手動レビュー、`needs-review` / `major-update` ラベル付与
+- CI (GitHub Actions): E2E (Playwright) と `bun test` を必須化。Renovate PR の自動マージは E2E 通過時のみ。
+
+### 14.14.4 Renovate 設定例 (`renovate.json`)
+
+```json
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
+  "rangeStrategy": "pin",
+  "prCreation": "not-pending",
+  "lockFileMaintenance": { "enabled": true, "schedule": ["before 3am on monday"] },
+  "vulnerabilityAlerts": { "enabled": true, "labels": ["security"] },
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "matchUpdateTypes": ["minor"],
+      "schedule": ["before 3am on first day of month"]
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["needs-review", "major-update"]
+    }
+  ]
+}
+```
+
+> 設計上の選択:
+> - **`prCreation: "not-pending"`**: アップストリームのテストが完了するまで PR 作成を待機。CI が落ちた状態の PR が乱立するのを防ぐ。
+> - **`automergeType: "pr"`**: PR を作って通常の merge フローで自動マージ (本リポジトリの README 運用ポリシーと合致)。`branch` を選ぶと PR を作らずベースブランチに直接 push してしまうため不採用。
+> - **`rangeStrategy: "pin"`**: 依存追加時にも常に絶対バージョンで pin する (caret/tilde 禁止の運用ポリシーを Renovate 側でも強制)。
+
+### 14.14.5 マイグレーションパス
+
+本作は新規プロジェクトのため、初回の `package.json` は §14.14.1 の絶対バージョンで `bun add` を実行して生成すれば足りる:
+
+```bash
+# 新規プロジェクトの初回セットアップ
+bun add react@19.0.0 react-dom@19.0.0 zustand@5.1.0 \
+        pixi.js@8.2.1 bitecs@0.9.6 howler@2.2.4 \
+        valibot@0.33.0 i18next@23.11.0 react-i18next@14.1.2
+
+bun add -d typescript@5.8.2 vite@6.0.0 @vitejs/plugin-basic-ssl@1.1.0 \
+           vite-plugin-pwa@0.20.0 @biomejs/biome@1.8.0 @playwright/test@1.45.0
+```
+
+既存プロジェクトに本ポリシー (絶対バージョン化) を適用する場合は、`npm-check-updates` の `-E` (`--exact`) で一括変換するのが OS ポータブル (sed の BSD/GNU 差異を回避):
+
+```bash
+# 既存プロジェクトのワンショット移行
+bunx npm-check-updates -u -E --target patch
+bun install
+```
+
+> `-E` は caret/tilde を取り除いて exact version で書き戻すため、追加で sed 等の正規表現置換は不要。
+
+### 14.14.6 各章との整合チェック
+
+本表の確定パッケージは、以下の章の記述と完全に整合している必要がある (Round 2 / T1 PR で既に整合済):
+
+- §11.2 描画レンダラ: `pixi.js@8.2.1` (WebGPU 既定 / WebGL2 / Canvas2D)
+- §14.2 ECS: `bitecs@0.9.6` (TypedArray SoA)
+- §14.2.2 ハイブリッド状態管理: `react@19.0.0` + `react-dom@19.0.0` + `zustand@5.1.0`
+- §14.2.3 / §80 / §93 バリデーション: `valibot@0.33.0`
+- §14.8 テスト: `@playwright/test@1.45.0` + `bun test`
+- §14.9 ビルド: `bun@1.2.0` + `vite@6.0.0` + `@vitejs/plugin-basic-ssl@1.1.0` + `typescript@5.8.2` + `@biomejs/biome@1.8.0`
+- §14.10 PWA: `vite-plugin-pwa@0.20.0` (Service Worker のみ。Push / Sync は不採用, §18.12)
+- §17.9 i18n: `i18next@23.11.0` + `react-i18next@14.1.2`
+- §92 オーディオ: `howler@2.2.4`
+- §20 物理: Custom AABB (整数 + subpixel)、汎用物理エンジンは不採用 (§2.1.2)
+
+将来 Round 3 (Issue #18) で追加されるサーバ側スタック (Cloudflare Pages / Workers / D1 / R2 / Firebase Auth など) は §14.15 (新章, Round 3 で追加予定) で別途固定する。
