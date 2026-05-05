@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { mountVisibilityHandler } from '@platform/visibility.ts';
 import { isStandalone, mountInstallPromptCapture } from '@platform/install.ts';
+import { updateReduceMotion } from '@platform/index.ts';
 import { mountAutoSave, recordClear, getSavedData } from '@save/index.ts';
 import { mountAudio, setVolume } from '@audio/index.ts';
 import { useGame } from '@game/index.ts';
@@ -59,11 +60,13 @@ export function App() {
     const detachSave = mountAutoSave();
     // β2.0-β: UserSettings.audio から音量を反映 + audio store mount
     // optional chain で migration 漏れに耐性 (Gemini 指摘 6)
-    const audio = getSavedData()?.settings?.audio;
+    const settings = getSavedData()?.settings;
     setVolume({
-      master: audio?.master ?? 0.7,
-      se: audio?.se ?? 0.7,
+      master: settings?.audio?.master ?? 0.7,
+      se: settings?.audio?.se ?? 0.7,
     });
+    // β3.0-β: reduceMotion を起動時に body 属性に反映
+    updateReduceMotion(settings?.a11y?.reduceMotion ?? false);
     const detachAudio = mountAudio();
     return () => {
       detachSave();

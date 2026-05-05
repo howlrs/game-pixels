@@ -310,11 +310,11 @@ export function createGridRenderer(app: Application): GridRenderer {
       onComplete();
     };
 
-    // prefers-reduced-motion: reduce → 即終了
+    // β3.0-β: prefers-reduced-motion (OS) または body[data-reduce-motion="true"] (ユーザー設定) で即終了
     const reducedMotion =
       typeof window !== 'undefined' &&
-      window.matchMedia &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      ((window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ||
+        (typeof document !== 'undefined' && document.body.dataset.reduceMotion === 'true'));
     if (reducedMotion) {
       // 通常 draw を出してから同期的に finish (盤面は緑になる, アニメ無し)
       draw(state);

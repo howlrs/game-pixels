@@ -9,3 +9,4 @@ export {
   mountInstallPromptCapture,
   promptInstall,
 } from './install.ts';
+export { updateReduceMotion, isReduceMotionApplied } from './reduce-motion.ts';
