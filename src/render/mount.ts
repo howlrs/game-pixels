@@ -1,9 +1,8 @@
-// docs §11.2 / §14.1 / §14.3 / §14.2.1 / §20.2 / §90:
-// Pixi.js v8 + bitECS world + 固定タイムステップループ + プレイヤー物理 + 入力スナップショット の統合。
-// Step C: 1 体のプレイヤーを Keyboard で操作 (左右 + ジャンプ)、画面下部の床で着地、可変ジャンプ高、Coyote/JumpBuffer。
-// 実タイル衝突 (X 軸 / 任意床) は Step D で実装。
+// docs §11.2 / §14.1 / §14.3 / §14.2.1 / §20.2 / §90 / §8.2.2:
+// Step D: 最小ステージ (1-1) の Valibot ロード + タイル描画 + AABB タイル衝突 + ゴール接触判定。
+// Step C のプレイヤー物理 (二段速度 / 二重重力 / Coyote / JumpBuffer) を実タイル衝突に統合。
 
-import { addComponents, addEntity, deleteWorld, query, type World } from 'bitecs';
+import { addComponents, addEntity, deleteWorld } from 'bitecs';
 import { Application, Graphics, Sprite as PixiSprite, type Texture } from 'pixi.js';
 import { useHud } from '@ui/hud-store.ts';
 import { detectMobile } from '@platform/detect.ts';
@@ -17,9 +16,19 @@ import {
 } from '@core/world.ts';
 import { PHYSICS_DT_MS, createFixedStepLoop } from '@core/loop.ts';
 import { createInputBuffer } from '@core/input/buffer.ts';
-import { createPlayerState, stepPlayerPhysics } from '@core/physics/player.ts';
+import {
+  createPlayerState,
+  stepPlayerInputAndVelocity,
+  tickPlayerJumpBuffer,
+  updatePlayerGroundState,
+  type PlayerPhysicsState,
+} from '@core/physics/player.ts';
+import { resolveTileCollision, type AabbBody } from '@core/physics/tile-collision.ts';
+import { loadStage } from '@core/stage/loader.ts';
+import type { Stage, StageArea } from '@core/stage/schema.ts';
 import { attachKeyboard } from '@input/keyboard.ts';
-import { physicsSystem, renderSyncSystem, type SpriteRegistry } from '@game/index.ts';
+import { renderTilemap, type RenderedTilemap } from './tilemap.ts';
+import { renderSyncSystem, type SpriteRegistry } from '@game/index.ts';
 
 const INTERNAL_W = 480;
 const INTERNAL_H = 270;
@@ -36,7 +45,7 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
   await app.init({
     width: INTERNAL_W,
     height: INTERNAL_H,
-    backgroundColor: 0x102030,
+    backgroundColor: 0x6b8cff, // 空色背景
     antialias: false,
     preference: 'webgpu',
     roundPixels: true,
@@ -44,66 +53,99 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
 
   container.appendChild(app.canvas);
 
-  // bitECS world を作る
+  // ステージロード (§8.2.2 Schema-first)。失敗時は console + HUD に表示。
+  let stage: Stage;
+  try {
+    stage = await loadStage('/stages/1-1.json');
+  } catch (e) {
+    console.error('[mario-pixel] stage load failed', e);
+    return makeFailureHandle(app);
+  }
+  const area = stage.areas[0]!;
+  const tilePx = stage.tileSize;
+
+  // タイル描画
+  const tilemap: RenderedTilemap = renderTilemap(app, area, tilePx);
+  app.stage.addChild(tilemap.container);
+
+  // bitECS world (Step E 以降で全 entity 管理に拡張)
   const world: GameWorld = createGameWorld();
   const sprites: SpriteRegistry = new Map();
-  // 動的生成したテクスチャは destroy 時に明示解放する (Step B / Gemini Pro 指摘 = Pixi.js のメモリリーク防止)。
   const ownedTextures: Texture[] = [];
 
-  // 入力バッファ (Keyboard)
+  // 入力バッファ
   const inputBuffer = createInputBuffer();
   const detachKeyboard = attachKeyboard(inputBuffer);
 
-  // プレイヤー entity と物理状態
-  const playerSize = 16; // px
-  const halfPlayerSub = (playerSize / 2) * SUB;
-  const groundY = (INTERNAL_H - 16) * SUB; // 床: 画面下端から 16px 上 (subpixel)
-  const stageBounds = {
-    minX: halfPlayerSub,
-    maxX: INTERNAL_W * SUB - halfPlayerSub,
-  };
-  const playerState = createPlayerState((INTERNAL_W * SUB) / 2, groundY);
-  const playerEid = spawnBox(
-    app,
-    world,
-    sprites,
-    ownedTextures,
-    playerState.x,
-    playerState.y,
-    0x55aaff,
-    playerSize,
-  );
+  // プレイヤー entity 生成 (player の物理状態は別途 Vanilla で管理し、Position/Velocity に同期)
+  const playerSize = 14; // 16px タイルより小さくして衝突に余裕
+  const startX = (area.playerStart.x + 0.5) * tilePx * SUB;
+  const startY = (area.playerStart.y + 0.5) * tilePx * SUB;
+  const playerState: PlayerPhysicsState = createPlayerState(startX, startY);
+  const playerEid = spawnSprite(app, world, sprites, ownedTextures, startX, startY, 0x55aaff, playerSize);
 
-  // 床 (見せかけのライン)。本格的なタイルは Step D。
-  const floor = new Graphics().rect(0, INTERNAL_H - 1, INTERNAL_W, 1).fill(0x88aacc);
-  app.stage.addChild(floor);
-
-  // レンダラ種別を HUD に流す
+  // HUD にレンダラ種別 + ステージ名
   const rendererType = (app.renderer as { type: number; name?: string }).name ?? `type:${app.renderer.type}`;
   useHud.getState().setFrameSnapshot({ rendererType });
-
-  console.info('[mario-pixel] mountPixi', {
+  console.info('[mario-pixel] mountPixi (Step D)', {
     rendererType,
+    stageId: stage.id,
+    areaId: area.id,
     device: detectMobile(),
     pixelRatio: window.devicePixelRatio,
     viewport: { w: window.innerWidth, h: window.innerHeight },
   });
 
-  // 固定タイムステップループ (§94.3): 物理 60Hz / 描画 rAF
+  // ゴール到達フラグ
+  let cleared = false;
+
+  // 固定タイムステップループ
   const fixedLoop = createFixedStepLoop({
     physicsStep: () => {
-      // Step C: 物理 frame 開始時に入力スナップショットを確定 (§9.3 / §14.4)
       inputBuffer.beginFrame();
       const snap = inputBuffer.snapshot();
       const running = snap.run === 'pressed' || snap.run === 'held';
-      stepPlayerPhysics(playerState, snap, groundY, running, stageBounds);
-      // bitECS の Position/Velocity に同期 (描画用)
+
+      if (!cleared) {
+        // 1. 入力反映 + 速度更新
+        stepPlayerInputAndVelocity(playerState, snap, running);
+
+        // 2. 位置更新 + タイル衝突解決
+        const body: AabbBody = {
+          x: playerState.x,
+          y: playerState.y,
+          halfW: playerSize / 2,
+          halfH: playerSize / 2,
+          vx: playerState.vx,
+          vy: playerState.vy,
+        };
+        const collision = resolveTileCollision(body, area, tilePx);
+        playerState.x = body.x;
+        playerState.y = body.y;
+        playerState.vx = body.vx;
+        playerState.vy = body.vy;
+
+        // 3. 地面状態更新 (Coyote)
+        updatePlayerGroundState(playerState, collision.hitBottom);
+
+        // 4. JumpBuffer デクリメント
+        tickPlayerJumpBuffer(playerState);
+
+        // 5. ゴール接触
+        if (collision.touchedGoal) {
+          cleared = true;
+          // HUD にスコア加算 (見せかけ): 残りタイマー × 50 (§8.3.1 SMB1 互換)
+          const t = useHud.getState().timer;
+          useHud.getState().setFrameSnapshot({ score: t * 50 });
+          console.info('[mario-pixel] STAGE CLEAR!', { score: t * 50 });
+        }
+      }
+
+      // bitECS Position/Velocity に同期 (描画用)
       Position.x[playerEid] = playerState.x;
       Position.y[playerEid] = playerState.y;
       Velocity.x[playerEid] = playerState.vx;
       Velocity.y[playerEid] = playerState.vy;
-      // 他の entity (現状なし) を物理 system で進める
-      physicsSystem(world);
     },
     render: (_alpha) => {
       renderSyncSystem(world, sprites, app.stage, 0, 0, 1);
@@ -120,7 +162,6 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
     const dtMs = app.ticker.deltaMS;
     fixedLoop.onFrame(dtMs);
 
-    // FPS 計測 (§14.2.2 で UI に Push)
     fpsAccumMs += dtMs;
     fpsFrames += 1;
     updateAccumMs += dtMs;
@@ -130,8 +171,7 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
       fpsAccumMs = 0;
       fpsFrames = 0;
     }
-    // タイマー更新 (見せかけ、1 秒で 1 減)。Step D の実ゲームロジックで置換予定。
-    if (updateAccumMs >= 1000) {
+    if (updateAccumMs >= 1000 && !cleared) {
       const cur = useHud.getState().timer;
       if (cur > 0) useHud.getState().setFrameSnapshot({ timer: cur - 1 });
       updateAccumMs -= 1000;
@@ -143,27 +183,25 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
   return {
     start: () => {
       started = true;
-      fixedLoop.reset(); // pause 復帰時の蓄積を破棄
+      fixedLoop.reset();
     },
     destroy: () => {
       started = false;
       app.ticker.remove(onTick);
       detachKeyboard();
       sprites.clear();
-      // Step B / Gemini Pro 指摘: 生成テクスチャと bitECS world を明示解放してメモリリークを防ぐ。
-      // app.destroy はテクスチャを自動解放しないため、generateTexture したものは自前で destroy する。
+      tilemap.destroy();
       for (const tex of ownedTextures) tex.destroy(true);
       ownedTextures.length = 0;
       deleteWorld(world);
-      // Pixi.js v8: app.destroy(removeView, opts) で children + textures + context を解放
       app.destroy(true, { children: true, texture: true, textureSource: true });
     },
   };
 }
 
-function spawnBox(
+function spawnSprite(
   app: Application,
-  world: World,
+  world: GameWorld,
   sprites: SpriteRegistry,
   ownedTextures: Texture[],
   xSub: number,
@@ -172,7 +210,6 @@ function spawnBox(
   size: number,
 ): number {
   const eid = addEntity(world);
-  // bitECS 0.4.0 の addComponents は (world, eid, ...components) 形式
   addComponents(world, eid, Position, Velocity, AABB, SpriteComp);
   Position.x[eid] = xSub | 0;
   Position.y[eid] = ySub | 0;
@@ -182,11 +219,10 @@ function spawnBox(
   AABB.halfH[eid] = (size / 2) | 0;
   SpriteComp.id[eid] = 1;
 
-  // Pixi.js sprite を生成 (テクスチャは矩形 Graphics → Texture で代用、Step D でアトラスに置換)
   const g = new Graphics().rect(0, 0, size, size).fill(color);
   const tex = app.renderer.generateTexture(g);
   g.destroy();
-  ownedTextures.push(tex); // Step B / Gemini Pro 指摘: destroy 時の解放対象に登録
+  ownedTextures.push(tex);
   const sprite = new PixiSprite(tex);
   sprite.anchor.set(0.5);
   app.stage.addChild(sprite);
@@ -194,5 +230,19 @@ function spawnBox(
   return eid;
 }
 
-// PHYSICS_DT_MS は他モジュールでの参考用に再 export
+/** ステージロード失敗時のフォールバック handle (Pixi.js だけ生かして空表示)。 */
+function makeFailureHandle(app: Application): GameHandle {
+  const errText = document.createElement('div');
+  errText.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font:16px monospace';
+  errText.textContent = 'ステージロード失敗 — console を確認してください';
+  document.body.appendChild(errText);
+  return {
+    start: () => {},
+    destroy: () => {
+      errText.remove();
+      app.destroy(true);
+    },
+  };
+}
+
 export { PHYSICS_DT_MS };
