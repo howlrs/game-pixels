@@ -78,21 +78,82 @@ const migrations: Record<number, (file: any) => any> = {
 - 入力スナップショット (§90) と組み合わせれば、同一プロファイル × 同一試行回数で完全再現可能。
 - リプレイのエクスポートは MVP 範囲外。
 
-## 13.7 クラウド同期 (将来)
+## 13.7 クラウド同期 (v1.1, Round 3 / Issue #18 で計画確定)
 
 - `CloudBackend` の最小契約: `load` / `save` / `lastModified`。
 - 単一プロファイルの "last writer wins" を既定。コンフリクト UI は将来。
-- 認証は OAuth (Google 等)。MVP 範囲外。
+- **採用サービス (v1.1)**: Cloudflare D1 (セーブメタ + 設定) + Cloudflare R2 (リプレイ等の大物) + Firebase Auth (Sign in with Apple / Google) のハイブリッド構成 (§14.15 参照)。
+- **認証**: Firebase Auth (Spark プラン無料枠で十分)。Cloudflare Access は B2B 寄りで本作の OAuth には不向き。
+- **MVP には含めない理由**: 認証 + バックエンドの導入は仕様書/実装の複雑度を一気に押し上げる。MVP は IndexedDB + export/import (§13.9.4) + ホーム画面追加促進 UI (§13.9.3) で「ローカル運用 + 緩和策」に留める。
+- **v1.1 移行時の互換性**: `SaveBackend` インタフェースを満たす `CloudBackend` を追加するだけで、既存の `IndexedDBBackend` と並走可能。マイグレーションは「初回 Cloud ログイン時に IndexedDB を Cloud にアップロード → 以降 Cloud を主、IndexedDB をオフラインキャッシュとして併用」の流れ。
 
 ## 13.8 容量
 
 - セーブ全体 ~5KB 程度を想定。IndexedDB の上限 (50MB+) には全く触れない。
 - ただし「自由保存スロット」(将来のリプレイ保存) 等を見越し、容量上限の警告 UI を実装 (`navigator.storage.estimate()`)。
 
-## 13.9 プライベートブラウジング
+## 13.9 プライベートブラウジング / iOS Safari の 7 日消失リスク (Round 3 / Issue #18)
 
 - 一部ブラウザ (Safari 等) では IndexedDB が一時的領域に置かれ、タブ閉じで消える。
 - セーブ完了後に `navigator.storage.persist()` を要求し、ストレージの永続化を試みる。失敗時はユーザーに通知。
+
+### 13.9.1 iOS Safari の 7 日無アクセスでの全削除 (深刻度: 高, Round 3 / Gemini Pro deep)
+
+iOS Safari (および iPadOS) では、**ホーム画面に追加されていない通常 Safari タブ** からアクセスしている場合、
+**最後のユーザー操作から 7 日間アクセスが無いと、IndexedDB / Cache API / LocalStorage を OS が無警告で全削除** する (Apple ITP, Intelligent Tracking Prevention 由来の仕様)。
+これは本作のような長期プレイ前提のゲームにとって、**セーブデータが突然全消失する致命的リスク** となる。
+
+#### 13.9.2 緩和策 (MVP)
+
+| 対策 | 実装範囲 | 効果 |
+|---|---|---|
+| **ホーム画面追加 (PWA インストール) 促進 UI** | MVP 必須 | Add-to-Home-Screen された PWA は ITP 7 日タイマーの対象外 (Apple 公式)。最も確実な緩和策 |
+| **`navigator.storage.persist()` 要求** | MVP 必須 | "persisted storage" として宣言できれば 7 日タイマー対象外。ただし iOS Safari は通常 false を返す (PWA インストール済かつ追加条件成立時のみ true) |
+| **セーブの export / import 機能** | **MVP 必須**: テキスト形式 (Base64 圧縮 JSON) でクリップボードコピー可能にする。万一消失しても復旧可能 | 最低限の保険 |
+| **クラウドセーブ (Cloudflare D1/R2 + 認証)** | v1.1 で正式実装 (§14.15 参照) | 完全な永続化。MVP 範囲外 |
+
+#### 13.9.3 ホーム画面追加促進 UI の方針
+
+- 初回起動時 + 30 分プレイ達成時の 2 タイミングで、`beforeinstallprompt` イベントを保持して install prompt を発火 (Android Chrome / Desktop Chrome)。
+- iOS Safari は `beforeinstallprompt` をサポートしないため、「共有 → ホーム画面に追加」の手順を画像付きで案内するモーダルを表示する。
+- 「あとで」を選んだ場合は次回起動時の表示頻度を下げる (1 週間後)。
+- すでにホーム画面追加済 (PWA standalone モード) の判定: `window.matchMedia('(display-mode: standalone)').matches`。
+
+### 13.9.4 export / import 機能の最小実装
+
+UTF-8 safe な Base64 変換は **`TextEncoder` / `TextDecoder` を使う** (Round 3 / Gemini Pro 指摘)。`escape` / `unescape` は ECMAScript で deprecated 扱いのため使用禁止。
+
+```ts
+// save/export.ts
+export function exportSave(file: SaveFile): string {
+  const json = JSON.stringify(file);
+  const bytes = new TextEncoder().encode(json);                 // UTF-8 bytes
+  // btoa は ASCII しか受け付けないため bytes → binary string に変換
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+export function importSave(blob: string): SaveFile {
+  const binary = atob(blob);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const json = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  const raw: unknown = JSON.parse(json);
+  const parsed = v.safeParse(SaveSchema, raw);                  // §13.4 / §14.2.3 と同じ Valibot 検証
+  if (!parsed.success) throw new SaveImportError(parsed.issues);
+  return parsed.output;
+}
+
+// ui/settings/save-export.tsx の挙動
+// - "セーブをコピー" ボタン → exportSave → navigator.clipboard.writeText
+// - "セーブを読み込む" ボタン → textarea から貼り付け → importSave → 上書き確認 → save
+```
+
+- セーブサイズ ~5KB (§13.8) なら Base64 化して 7KB 程度。クリップボード経由で共有可能。
+- iOS Safari は `navigator.clipboard.writeText` をユーザージェスチャー内同期呼び出しのみ許可するため、Audio と同じ制約 (§12.3.1)。
+- バリデーションは Valibot で行い、改ざんセーブを物理層に流さない (§14.2.3)。
+- `TextDecoder` は `{ fatal: true }` で不正バイト列を例外化 (Base64 改ざん検知の最初の防御線)。
 
 ## 13.10 セキュリティ/プライバシ
 
