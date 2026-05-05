@@ -46,10 +46,17 @@ function step_actor(a, dx_sub, dy_sub):
         move_x(a, sx)
         move_y(a, sy)
 
+# フェイルセーフ: 1 サブステップ内のループは MAX_RESOLVE_ITERATIONS (8) を超えない。
+# 超過時は warn ログ + アクター位置を直前の非衝突位置に固定して脱出する。
+MAX_RESOLVE_ITERATIONS = 8
+
 function move_x(a, dx_sub):
     a.x_sub += dx_sub
-    new_x_px = a.x_sub >> 4
+    iters = 0
     while a moves further than 1 px in this substep:
+        iters += 1
+        if iters > MAX_RESOLVE_ITERATIONS:
+            log_warn("collision resolve loop overflow"); break
         if collides_after_x(a):
             push back to last non-colliding px column
             a.x_sub = a.x_px << 4  # subpixel をリセット (壁にめり込まない)
@@ -75,6 +82,7 @@ function move_y(a, dy_sub):
 
 1. **サブピクセル丸め前に判定** することで、px 単位の微小ジャンプを回避。
 2. **接地中の 1 px 段差は「自動上昇」** で吸収 (Auto-step up to 1 px when grounded and moving horizontally)。古典の挙動と差分は感じない範囲。
+   - 厳密な発火条件: **(a) 接地中**, **(b) 水平移動中** (`vx ≠ 0`), **(c) 進行方向の足元タイルが Solid**, **(d) その 1 px 上のセルが Empty (= プレイヤーの新 AABB が空中)**, **(e) プレイヤーの頭上 1 px も Empty (= headroom 確保)**。これらすべてを満たす場合のみ 1 px 押し上げ。これに反する場合は通常の壁衝突として処理する (壁伝いに浮遊するグリッチを防止)。
 3. 連続タイルの境界をマージしたコリジョン形状を持たない (タイル個別判定)。代わりに、**接地中の Y 衝突は「上から押し戻し」のみ採用** し、横方向の頭突きを発生させない。
 
 > 注: Box2D 等の物理エンジンでよく使われる「接続タイルの仮想頂点 (chain shape)」相当の処理。本作はタイル方式なのでマージは不要だが、押し戻し優先軸を変えることで等価の効果を得る。
@@ -83,14 +91,19 @@ function move_y(a, dy_sub):
 
 - 坂タイルは **タイル内 Y オフセット関数** `slope_y(x_in_tile)` を持つ。例: 45° タイル → `y = 16 - x_in_tile`。
 - プレイヤーの **足元 X 中央** がタイル内のどの x に当たるかで `slope_y` を計算し、`expected_y = tile.y + slope_y(x)` に "snap" する。
+- **スナップ前に headroom を確認**: スナップ後の AABB の頭上 1 px (= 上方 1 行の cell) に Solid タイルがある場合はスナップを行わず通常衝突 (横方向押し戻し) として処理。これにより坂を登った先に低い天井がある場合に頭がめり込むのを防ぐ。
 - 接地中の坂上昇/下降では `vy = 0` (重力分は次フレーム判定で吸収)。下り坂で空中に放り出されないため、接地維持距離 (1〜2 px) を許容する。
 - 坂の頂点で連続して別の坂/ブロックがある場合、優先順位は **より上にある y を採用** する (めり込み防止)。
 
 ## 3.7 片道床 (Jump-through Platform)
 
-- 上方向の `vy < 0` (上昇中) または "下入力 + ジャンプ" で `pass_through_timer` を起動 (例: 10 frame)。
-- タイマー中はその床との衝突を無視する。
-- これにより SMB3 系の「下段に降りる」操作と SMB1 系の「下から通り抜ける」操作の両方を表現可能。
+タイマーベースで衝突無効化を行うと、フレーム落ちや重力次第で「タイマー切れ時にまだ床と交差している」状態が発生し地形にスタックする。本作は **状態管理ベース** を採用する。
+
+- アクターごとに `ignored_one_way: Set<TileRef>` を持つ。
+- 上昇中 (`vy < 0`) または "下入力 + ジャンプ" を契機に、現在交差している片道床のタイル参照を `ignored_one_way` に追加。
+- 毎フレーム、`ignored_one_way` の各エントリについて **AABB の重なりが完全に消えた** タイミングで Set から除外する。除外されるまではそのタイルは衝突無効。
+- これにより SMB3 系の「下段に降りる」操作と SMB1 系の「下から通り抜ける」操作の両方を表現可能で、かつスタックしない。
+- フェイルセーフ: 同時無視タイル数の上限 (8) を設け、超過時は古い順に解放する (異常系)。
 
 ## 3.8 トリガー判定
 
