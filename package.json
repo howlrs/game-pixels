@@ -1,8 +1,8 @@
 {
-  "name": "mario-pixel",
-  "version": "0.3.0",
+  "name": "pixels",
+  "version": "0.6.0-pixels-spec",
   "private": true,
-  "description": "マリオピクセル (Web 2D サイドスクロール プラットフォーマー) — 実装スケルトン",
+  "description": "ピクセルズ (Web ピクチャーロジック / ノノグラム) — 仕様確定版 (Round 5)",
   "type": "module",
   "engines": {
     "bun": "1.2.0"

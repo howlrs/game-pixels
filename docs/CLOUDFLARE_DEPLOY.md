@@ -16,7 +16,7 @@ docs §14.15 (デプロイターゲット) で確定した方針に基づく、�
 
 | 項目 | 値 |
 | :--- | :--- |
-| **Project name** | `mario-pixel` (任意) |
+| **Project name** | `pixels` (任意) |
 | **Production branch** | `main` |
 | **Framework preset** | None (Bun + Vite を手動指定) |
 | **Build command** | `bun install --frozen-lockfile && bun run build` |
@@ -34,12 +34,12 @@ docs §14.15 (デプロイターゲット) で確定した方針に基づく、�
 
 ## 2. デプロイ後の確認 (Step F の合格条件)
 
-Pages から付与される URL (例: `mario-pixel.pages.dev`) で以下を順に確認する。docs §14.10 / §14.15.6 / Step E (PR #26) で Gemini Pro が指摘した 2 項目 (オフラインリロード / 再デプロイ時 SW 更新) を重点確認。
+Pages から付与される URL (例: `pixels.pages.dev`) で以下を順に確認する。docs §14.10 / §14.15.6 / Step E (PR #26) で Gemini Pro が指摘した 2 項目 (オフラインリロード / 再デプロイ時 SW 更新) を重点確認。
 
 ### 2.1 基本動作
 
 - [ ] `https://<project>.pages.dev/` を開いて TAP TO START が表示
-- [ ] タップ → ステージ全景表示 + プレイヤー操作可能
+- [ ] タップ → パズル選択画面表示 + パズル選択 → 盤面 + ヒント表示
 - [ ] HUD の FPS が 60 (デスクトップ) / 30 以上 (低スペックモバイル)
 - [ ] WebGPU 対応ブラウザ (Chrome 最新) で console に `rendererType: webgpu` ログ
 - [ ] Safari (macOS / iOS) で WebGL2 fallback が動作
@@ -71,7 +71,7 @@ Pages から付与される URL (例: `mario-pixel.pages.dev`) で以下を順�
 
 ## 3. Preview デプロイ (PR ごと)
 
-- main 以外のブランチを push すると、Pages が自動的に preview URL を生成 (例: `<branch-hash>.mario-pixel.pages.dev`)
+- main 以外のブランチを push すると、Pages が自動的に preview URL を生成 (例: `<branch-hash>.pixels.pages.dev`)
 - preview URL は `X-Robots-Tag: noindex` が自動付与される (検索エンジンに登録されない)
 - PR の Conversation に Cloudflare bot が preview URL をコメント
 

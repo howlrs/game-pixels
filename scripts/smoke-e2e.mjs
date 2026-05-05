@@ -75,8 +75,11 @@ try {
   };
   console.log(JSON.stringify(result, null, 2));
 
-  await page.screenshot({ path: '/tmp/mario-pixel-step-d.png', fullPage: false });
-  console.error('[smoke-e2e] screenshot saved to /tmp/mario-pixel-step-d.png');
+  // 注: Round 6 でゲームロジックがピクセルズ (ノノグラム) に置換されるため、本スクリプトの
+  // "STAGE CLEAR" や ArrowRight + Space の操作系は Round 6 で全面書換予定 (パズル選択 →
+  // 盤面 → カーソル操作 → クリア判定の Smoke E2E に差し替え)。
+  await page.screenshot({ path: '/tmp/pixels-step-d.png', fullPage: false });
+  console.error('[smoke-e2e] screenshot saved to /tmp/pixels-step-d.png');
 } finally {
   await browser.close();
 }

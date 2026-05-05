@@ -1,101 +1,119 @@
-# 94. アーキテクチャ
+# 94. アーキテクチャ (Round 5: ピクセルズ仕様)
 
 ## 14.1 全体構成
 
 ```
 src/
-├── core/             # 物理、衝突、入力スナップショット、シード乱数, ECS world (DOM 非依存)
-├── game/             # ゲームロジック (プレイヤー, 敵, アイテム, ワールド) — core 依存。ECS systems を実装。
-├── render/           # 描画レイヤ (WebGPU 既定 / WebGL2 / Canvas2D, Pixi.js v8)
+├── core/             # 盤面モデル / ヒント / クリア判定 (DOM 非依存)
+├── game/             # ゲームロジック (Zustand store + reducer)
+├── render/           # 描画レイヤ (Pixi.js v8 で盤面描画)
 ├── audio/            # 音声レイヤ (Howler)
-├── input/            # 入力アダプタ (Keyboard / Pointer / Gamepad → InputSnapshot)
-├── save/             # セーブバックエンド (IndexedDB / LocalStorage / Cloud) + Valibot スキーマ
-├── ui/               # メニュー, HUD, 設定, ローディング (React + Zustand, DOM ベース)
+├── input/            # 入力アダプタ (Mouse / Keyboard / Touch → action)
+├── save/             # セーブバックエンド (LocalStorage + debounce, §93)
+├── ui/               # メニュー, HUD, パズル選択, モード切替ボタン (React)
 ├── platform/         # PWA / Service Worker / 環境検出
-└── main.ts           # エントリ
+└── main.tsx          # エントリ
 ```
 
-- `core/` は **DOM 非依存**。Node.js (Bun) でテスト可能。
-- `core/` + `game/` は決定論。乱数は外から渡すシード PRNG のみ使用 (`Math.random` 禁止)。
-- `ui/` は React (HUD, メニュー, 設定画面) で構築するが、ゲームループそのものは `core/` + `render/` の Vanilla 層で動かす (§14.2.2 ハイブリッド状態管理)。
+- `core/` は **DOM 非依存**。Bun でテスト可能。
+- `core/` + `game/` は **決定論** (同じ操作列 + 同じパズルから常に同じ結果)。
+- `ui/` は React (HUD, メニュー, モード切替ボタン) で構築。盤面描画は Pixi.js v8 ref 経由 (旧仕様 §14.2.2 のハイブリッドを継続、§91)。
 
-## 14.2 ECS (採否判断) (Round 2 / Issue #11)
+## 14.2 状態管理 (Zustand 中心、bitECS 不採用) (Round 5 で方針変更)
 
-**Round 1 までの「ECS 不採用 (MVP)」方針を Round 2 で破棄し、初期から bitECS を採用する**。理由は以下:
+旧 Round 2-4 では bitECS を採用していたが、Round 5 (ノノグラム) では:
 
-- **将来の 3D 化 (HD-2D 風, §18.2.2) と描画分離**: 描画とロジックの分離が容易な ECS は、後からのリファクタリングコストが膨大になる OOP 継承ツリーを避ける必要がある (Round 2 / E3 専門家見解)。
-- **WebGPU compute shader への布石**: パーティクル (§11.7 [5]) を将来 GPU compute に移す際、SoA レイアウト前提の bitECS は移植コストが低い。
-- **Int32Array SoA の徹底**: §20 で物理を Int32Array SoA とした方針 (Round 2 / Issue #11) と完全に整合。bitECS のコンポーネントは内部的に TypedArray の SoA で保持されるため、物理層との接続が自然。
-- **アクター数の増加耐性**: UGC / Mario Maker 風や、画面外スポーンを密に行うステージ (§50 / §80) でも O(n) の linear scan が CPU キャッシュに乗りやすく、フレーム落ちが出にくい。
+- **アクター数 = 1 (カーソル)**、固定盤面 (5×5〜15×15) のみ
+- リアルタイム更新がない (ユーザー操作時のみ state 変更)
+- bitECS の TypedArray SoA メリットが活きない
 
-| 項目 | Round 1 | Round 2 (確定) |
-|---|---|---|
-| ECS ライブラリ | 不採用 | **bitECS を初期採用** |
-| データレイアウト | OOP オブジェクト | **TypedArray (Int32Array 等) SoA** |
-| パーティクル実装 | 軽量プール (§18.7) | bitECS の component で同等の SoA プール |
-| 移行リスク | 後から ECS 化する大規模リファクタが必要 | 初期から ECS のためゼロ |
+→ **bitECS は Round 6 で削除**、シンプルな **Zustand store** で全状態を管理する。
 
-### 14.2.1 bitECS の採用ガイドライン
+### 14.2.1 Store 構成 (ドラフト)
 
-- **components**: `Position`, `Velocity`, `AABB`, `Sprite`, `AnimationState`, `EnemyKind`, `PlayerInput`, `ItemKind`, `Lifetime` などを `defineComponent` で定義。すべて Int32Array / Float32Array / Uint8Array の SoA。
-- **systems**: 物理 (`physicsSystem`)、衝突 (`collisionSystem`)、入力反映 (`playerInputSystem`)、敵 AI (`enemyAiSystem`)、描画同期 (`renderSyncSystem`) を順序付きで `pipe` で合成。
-- **queries**: `defineQuery([Position, Velocity])` で systems 内の対象 entity を絞り込む。
-- **world**: 1 ステージ 1 world。Pause/Resume は world の凍結 (system pipeline を呼ばない) で実現。
-- **決定論**: bitECS の entity ID は連番で再現性があり、`world` をシードとともに保存すれば §14.5 の決定論を満たす。
+> **重要 (Round 5 / Gemini Pro deep 指摘)**: 盤面 `cells` は **1 次元配列** で持つ (`cells: CellState[]`、length = W × H、§20.4)。2 次元配列 `cells[row][col]` だと Zustand の参照比較で再描画されないバグ (深いミューテーション時) が起きやすい。1 次元配列なら `cells.slice()` で全コピー or 単一インデックス更新 (`cells.with(i, newValue)` または `[...cells.slice(0, i), newValue, ...cells.slice(i + 1)]`) で安全に更新できる。Immer の使用も検討可能 (依存追加が必要、MVP では標準 spread で済むため後送り)。
+
+```typescript
+// Round 6 で実装する Zustand store のドラフト:
+
+import { create } from 'zustand';
+
+interface GameStore {
+  // パズルロード
+  currentPuzzle: PuzzleData | null;
+  puzzleIndex: PuzzleIndex | null;
+
+  // 進行中盤面
+  board: Board;                          // §20 セル配列
+  cursor: Cursor;                        // §40 カーソル位置 + モード
+  clueMarks: ClueMarkState;              // §60 ヒント取り消し線
+  elapsedMs: number;                     // §93 経過時間
+  isPaused: boolean;
+  isCleared: boolean;
+
+  // クリア履歴 + 設定
+  clearRecords: Record<PuzzleId, PuzzleClearRecord>;
+  settings: UserSettings;
+
+  // Actions (immutable update)
+  loadPuzzle: (puzzle: PuzzleData) => void;
+  setCursor: (col: number, row: number) => void;
+  setMode: (mode: InputMode) => void;
+  applyToCell: (col: number, row: number, action: 'fill' | 'mark-x' | 'erase') => void;
+  toggleRowMark: (row: number, hintIndex: number) => void;
+  toggleColMark: (col: number, hintIndex: number) => void;
+  resetBoard: () => void;
+  pauseTimer: () => void;
+  resumeTimer: () => void;
+  finishPuzzle: () => void;
+}
+
+export const useGame = create<GameStore>((set, get) => ({
+  // ... 実装は Round 6
+}));
+```
+
+### 14.2.2 ハイブリッド (UI = React / Canvas = Pixi.js)
+
+旧仕様 (Round 2) のハイブリッド構成は **本作でも継続**:
+
+| 領域 | 実装 | 状態管理 |
+| :--- | :--- | :--- |
+| 盤面描画 (Canvas) | Pixi.js v8 + ref 経由マウント | `useGame` store を購読、変更時に再描画 |
+| HUD (経過時間 / モード切替ボタン / ベストタイム) | React コンポーネント | `useGame` の Zustand selector |
+| メニュー / パズル選択 / 設定 | React + 軽量ルーティング (Zustand state で管理) | 同上 |
+| セーブデータ | save/ レイヤが LocalStorage を直接読み書き | debounce で `useGame` から save/ へ Push (§93) |
+
+Pixi.js Canvas は React ツリー内 `<div ref={canvasRef}>` に append (Round 4 / Step A の方針継続)。
+
+### 14.2.3 Valibot Schema-first (継承)
+
+Round 2 で確定した Valibot Schema-first は本作でも継承:
+- パズル JSON のロード時検証 (§80.6)
+- セーブデータのマイグレーション後検証 (§93.5)
+- 入力 action の type guard (§90.3)
+
+> **旧 §14.2.1 bitECS の採用ガイドライン (Round 4 まで存在)**: ピクセルズでは bitECS を不採用とするため、本セクションは廃止。Round 6 で旧コード (src/core/world.ts / game/systems/*.ts 等) を削除する。
 
 ### 14.2.2 ハイブリッド状態管理 (コア Vanilla + UI Zustand) (Round 2 / Issue #11)
 
 ゲームループそのものを React の reconciler に乗せると、Web Audio や入力レイテンシが UI レンダリング負荷で阻害され (Round 2 / E10 専門家見解)、アクションゲームには致命的な音ズレ・入力遅延が発生する。本作では下記のハイブリッド構成を採用する:
 
-| 領域 | 実装 | 状態管理 |
-| :--- | :--- | :--- |
-| ゲームループ | Vanilla TS + bitECS + Pixi.js v8 | **`world` (bitECS) を SoT、React からは隔離** |
-| HUD (スコア / コイン / ライフ / タイム) | React コンポーネント | Zustand store。物理 frame 終了時に `setState` で同期 (1 frame に 1 回) |
-| メニュー / 設定 / タイトル / ポーズ | React + React Router (任意) | Zustand store |
-| セーブデータ | save/ レイヤが IndexedDB を直接読み書き | Zustand を経由しない (§14.5 決定論を Zustand に汚染させない) |
+> **旧 §14.2.2 テーブル + コード例 (bitECS + SMB1 物理ベース、Round 4 まで存在)**: ピクセルズでは bitECS / 物理ループを使わず Zustand store 中心 (上記 §14.2.1 参照) のため、本セクションは Round 5 で要約のみに変更。詳細な Zustand 実装例は §14.2.1 のドラフトに集約。
 
 - **境界**: `ui/` レイヤは `core` / `game` の関数を直接呼ばず、Zustand store を通じて読み出すだけ (一方向データフロー)。
-- **データフローの向き**: Vanilla 側 (`core` / `game` の物理ループ) が **frame 終了時に Zustand store へ Push** (例: `useHud.getState().setFrameSnapshot(...)`)。React コンポーネントは Zustand のフック (内部で React 19 の `useSyncExternalStore` を利用) で store を購読し、selector が返す値が変わった部分だけ再レンダリングする。`useSyncExternalStore` はあくまで「React コンポーネント ← Zustand」の購読方向で使われ、Vanilla 側 (`world`) の変更を Zustand 自身が subscribe するためのものではない。
-- **更新頻度**: HUD の数値は最大 60 Hz で十分。物理 frame 終了の 1 度だけ store を更新するため、React の reconciliation は最大 60 fps に制限される。
-- **Zustand 採用の根拠**: 軽量、フックベース、selector で再描画範囲を絞れる。Jotai は MVP では不要 (細粒度 atom が必要になった段階で追加検討)。
-
-```ts
-// ui/hud-store.ts
-import { create } from 'zustand';
-
-interface HudState {
-  score: number;
-  coins: number;
-  lives: number;
-  timer: number;
-  setFrameSnapshot: (s: Partial<HudState>) => void;
-}
-
-export const useHud = create<HudState>((set) => ({
-  score: 0, coins: 0, lives: 3, timer: 400,
-  setFrameSnapshot: (s) => set(s),
-}));
-
-// game/hud-sync.ts (frame 終了時に呼ぶ)
-export function syncHud(world: World) {
-  useHud.getState().setFrameSnapshot({
-    score: PlayerStats.score[playerEid],
-    coins: PlayerStats.coins[playerEid],
-    lives: PlayerStats.lives[playerEid],
-    timer: WorldClock.remaining[0],
-  });
-}
-```
+- **更新頻度**: ノノグラムはユーザー操作時のみ更新、HUD はタイマー (1 秒に 1 回) と中断/再開ボタン以外は再描画頻度低。
+- **Zustand 採用の根拠**: 軽量、フックベース、selector で再描画範囲を絞れる。Jotai は MVP では不要。
 
 ### 14.2.3 Valibot Schema-first (Round 2 / Issue #11)
 
-ステージ JSON / セーブデータ / リプレイ JSON / 入力スナップショットの **すべての境界バリデーションを Valibot で行う**。Zod ではなく Valibot を採用する理由:
+パズル JSON / セーブデータ / 入力 action の **すべての境界バリデーションを Valibot で行う**。Zod ではなく Valibot を採用する理由:
 
 - **バンドルサイズ**: Valibot 0.33 はモジュラー設計で tree-shake に強く、本作で必要な機能だけで Zod の 1/10 程度。本作のクライアントペイロード予算 (初回 < 500KB, §14.9) に直接効く。
 - **型生成**: スキーマから TS 型を `Output<typeof Schema>` で生成可能。エディタ側 (将来) とゲーム側のパースが常に同期 (Round 2 / E8, E9 専門家見解)。
-- **エラーメッセージのカスタマイズ**: ステージデザイナ向けに「タイル ID が範囲外」等の人間可読メッセージを issue に出せる。
+- **エラーメッセージのカスタマイズ**: パズルデザイナ向けに「ヒント数値が範囲外」「solution と meta.size 不一致」等の人間可読メッセージを Cross-field 検証で出せる。
 
-詳細は §80 (ワールドデータのスキーマ) と §93 (セーブデータのスキーマ) で扱う。本章では原則のみ:
+詳細は §80 (パズルデータスキーマ) と §93 (セーブデータスキーマ) で扱う。本章では原則のみ:
 
 - すべての外部入力 (ステージ JSON, セーブ JSON, リプレイ JSON, クラウド同期 payload) は **`safeParse` で型ガード**してから物理層に流す。
 - バリデーション失敗時は ① ロード拒否 + ② ユーザー通知 (HUD トースト) + ③ テレメトリ送出 (将来)。
@@ -266,7 +284,7 @@ iOS Safari は他ブラウザと比べて PWA 関連 API のサポートが限�
 | リンタ / フォーマッタ | `@biomejs/biome` | `1.8.0` | dev | ESLint / Prettier 代替 (高速) |
 | E2E テスト | `@playwright/test` | `1.45.0` | dev | クロスブラウザ E2E + WebGPU/WebGL2/Canvas2D 3 系統 (§14.8) |
 | ユニットテスト | `bun test` | (内蔵) | — | Bun 内蔵ランナー (§14.8) |
-| 物理 | (Custom AABB) | (本リポジトリ実装) | — | 整数 + subpixel 自前実装 (§20)、汎用エンジンは不採用 (§2.1.2) |
+| 物理 | (なし、ノノグラムのため) | — | — | 旧プラットフォーマー仕様の Custom AABB (整数+subpixel) は Round 5 で削除 |
 | CI Action | `actions/checkout` | `v4.1.6` | (CI) | GitHub Actions 用 |
 | CI Action | `oven-sh/setup-bun` | `v2.2.0` | (CI) | CI 上での Bun 環境構築 (Step F で実 marketplace の最新版に補正) |
 | 型定義 (Bun 内蔵 API) | `@types/bun` | `1.3.13` | dev | `bun:test` 等の Bun 内蔵 API の型。Round 3 / 実装スケルトン構築時に追加 |
@@ -375,7 +393,7 @@ bun install
 - §14.10 PWA: `vite-plugin-pwa@0.20.0` (Service Worker のみ。Push / Sync は不採用, §18.12)
 - §17.9 i18n: `i18next@23.11.0` + `react-i18next@14.1.2`
 - §92 オーディオ: `howler@2.2.4`
-- §20 物理: Custom AABB (整数 + subpixel)、汎用物理エンジンは不採用 (§2.1.2)
+- §20 盤面モデル: 三値セル (空 / 塗 / ×)、§30 ヒント生成は事前計算 (run-length encoding)。物理エンジンは不採用 (旧仕様 Round 4 までの Custom AABB は Round 5 で削除)
 
 将来 Round 3 (Issue #18) で追加されるサーバ側スタック (Cloudflare Pages / Workers / D1 / R2 / Firebase Auth など) は §14.15 で別途固定する。
 

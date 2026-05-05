@@ -1,164 +1,194 @@
-# 90. 入力
+# 90. 入力 (Input)
 
 ## 9.1 設計目標
 
-- **3 系統 (Keyboard, Pointer/Touch, Gamepad) を完全対応** し、内部では **論理ボタン** に正規化する。
-- 同じプレイヤー操作を、デバイスを切り替えても再現可能にする。
-- リマップを許可する (a11y, §96)。
-- レイテンシは 1 frame (16.7ms) 以内に処理。
+- **3 系統 (Mouse / Keyboard / Touch) を完全対応**、内部では「カーソル位置 + 入力モード + アクション」に正規化
+- リマップを許可 (a11y, §96)
+- 入力レイテンシは 1 フレーム (16.7ms) 以内に処理
+- 同じ操作を、デバイスを切り替えても再現可能
 
-## 9.2 論理ボタン
+## 9.2 論理アクション
 
-| 論理 | 既定キー | 既定ゲームパッド | 既定タッチ |
-|---|---|---|---|
-| Left | ArrowLeft, A | DPad Left, LStick X<-0.4 | 左仮想スティック |
-| Right | ArrowRight, D | DPad Right, LStick X>0.4 | 同上 |
-| Up | ArrowUp, W | DPad Up, LStick Y<-0.4 | 同上 |
-| Down | ArrowDown, S | DPad Down, LStick Y>0.4 | 同上 |
-| Jump | Space, K, Z | A (face down) | 右下ボタン (大) |
-| Run/Action | Shift, J, X | B (face right) | 右上ボタン (小) |
-| Pause | Esc, Enter | Start | 画面右上アイコン |
+ピクセルズの操作は以下の 7 アクションに集約される:
 
-## 9.3 入力スナップショット
+| 論理アクション | 説明 | 既定キー (KB) | マウス (PC) | タッチ (スマホ) |
+|---|---|---|---|---|
+| **CursorMove** (上下左右 + Home/End/PgUp/PgDn) | カーソル移動 | ←→↑↓ | hover | (タップ位置で適用、移動は不可) |
+| **Fill** | 現在セルを塗 | Z, Space | 左クリック | モード切替 + タップ |
+| **MarkX** | 現在セルに × | X | 右クリック | 同上 |
+| **Erase** | 現在セルを空に | C | (上書きトグル, §4.6 ※) | 同上 |
+| **ToggleClueRow** (i, hint) | i 行目の hint 番目に取り消し線 | (UI 経由) | クリック | タップ |
+| **ToggleClueCol** (j, hint) | 同上 | (UI 経由) | クリック | タップ |
+| **ResetBoard** | 盤面リセット (要確認) | R (要確認、KB ショートカット) | リセットボタン | リセットボタン |
 
-各 frame の最初に **イベントキューを論理状態にスナップ**:
+## 9.3 入力スナップショット (フレーム境界)
 
-```ts
-interface InputSnapshot {
-  ax: -1 | 0 | 1;       // 横入力 (Pointer はスティック同等の値)
-  ay: -1 | 0 | 1;       // 縦入力
-  jump: ButtonState;    // pressed | held | released | up
-  run:  ButtonState;
-  pause: ButtonState;
-  // 既存パッドの "edge" を保持 (jump_pressed_this_frame 等)
-}
+旧仕様 (プラットフォーマー) では物理 60Hz の固定タイムステップで「frame 開始時に入力スナップショット形成」が必須だったが、ノノグラムでは:
+
+- リアルタイム性なし (ユーザー操作のたびに即時反映で十分)
+- フレーム境界の概念不要
+- イベント駆動: マウス/キーボード/タッチイベントが発火したら即座にハンドラ実行 → store 更新 → React 再レンダリング
+
+```typescript
+// Round 6 で実装する型定義のドラフト (シンプルな action 型):
+
+export type GameAction =
+  | { type: 'CURSOR_MOVE'; col: number; row: number }
+  | { type: 'CELL_FILL'; col: number; row: number }
+  | { type: 'CELL_MARK_X'; col: number; row: number }
+  | { type: 'CELL_ERASE'; col: number; row: number }
+  | { type: 'CLUE_TOGGLE_ROW'; row: number; hintIndex: number }
+  | { type: 'CLUE_TOGGLE_COL'; col: number; hintIndex: number }
+  | { type: 'RESET_BOARD' }
+  | { type: 'TIMER_START' }
+  | { type: 'TIMER_PAUSE' }
+  | { type: 'TIMER_RESUME' };
+
+// Zustand store の reducer で各 action を処理
 ```
 
-- `pressed` フラグはこの frame で押された瞬間のみ true。`held` は継続中。
-- イベントは UI スレッド (rAF コールバック前) で受信し、物理 frame 開始時にロックして利用する (§94)。
+## 9.4 Mouse (PC)
 
-## 9.4 Keyboard
+### 9.4.1 基本操作
 
-- `keydown` / `keyup` をキャプチャ。`event.code` を主に使う (キーボード配列に依存しないため)。
-- 既知の問題: 同時押し制限 (NKRO/6KRO)。プレイヤーには多くて Jump/Run + 方向キーで 3 同時で済むよう設計。
-- ブラウザのフォーカス喪失で `keyup` が来ないケース → `window.blur` で全キー解放。
+- **左クリック** = Fill (空 → 塗)
+- **右クリック** = MarkX (空 → ×)
+- **左ドラッグ** = 連続 Fill (通過した空セルを全て塗)
+- **右ドラッグ** = 連続 MarkX (通過した空セルを全て ×)
+- **左クリック (塗 セル)** = Erase (塗 → 空) — トグル動作
+- **右クリック (× セル)** = Erase (× → 空) — トグル動作
 
-## 9.5 Pointer / Touch
+### 9.4.2 contextmenu 抑止
 
-### 9.5.1 仮想ジョイパッド
+右クリックで contextmenu が出ないよう `event.preventDefault()`:
 
-- 画面左下: 仮想 D-Pad (固定アンカー型) または スライド型 (initial-touch anchored)。MVP は **固定型** (古典の SMB UI に近い)。
-- 画面右下: Jump (大) / Run (小) ボタン。
-- ボタン配置はデバイスサイズに応じて拡縮 (§97)。
-- 入力受付は **マルチポインタ** (左手スティック + 右手ボタン同時) を必須サポート。
+```typescript
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+```
 
-### 9.5.2 PointerEvent vs TouchEvent
+ただし `<input>` や `<textarea>` 等の DOM フォーム要素では抑止しない (§9.5.5 旧仕様継承)。
 
-- 既定で `PointerEvent` のみ採用 (Pointer Events Level 2 は全モダンブラウザで対応済み, 2026 時点)。
-- `pointerdown` / `pointermove` / `pointerup` / `pointercancel` を扱う。
-- `touch-action: none` を CSS で当て、ダブルタップズームやスクロールを無効化。
-- ただし iOS Safari のエッジスワイプ (戻る) や一部の OS ジェスチャは CSS だけでは止まらない。ゲームキャンバス上の `touchstart` / `touchmove` リスナーを **`{ passive: false }` で登録**し、必要に応じて `e.preventDefault()` を呼ぶことで補強する (PointerEvent と並行登録)。
+### 9.4.3 ドラッグの実装方針 (起点セル属性保証、Round 5 / Gemini Pro deep 確定)
 
-### 9.5.3 仮想ボタンのデッドゾーンとヒットボックス
+- `mousedown` で:
+  1. 「ドラッグ開始セル」を記録
+  2. 「最初の操作内容 (Fill or MarkX or Erase)」を確定
+  3. **「起点セルの状態 (空 / 塗 / ×)」も記録** ← 重要
+- `mousemove` で通過セルを追跡:
+  - **起点セル属性と同じ状態のセルだけ** に同じ操作を適用
+  - 例: 空セルから塗ドラッグを開始 → 通過した「空セル」だけ塗る、既に「塗」or「×」のセルは no-op
+  - これにより、誤って既存の塗 or × を破壊するリスクを排除 (Undo なしの MVP の救済策)
+- `mouseup` でドラッグ終了
+- `mouseleave` (canvas 外に出た) でも終了扱い
 
-- Jump/Run ボタンのヒットボックスは **見た目より 16 px 大きい** (誤押しの逆: 押し損ね対策)。
-- 仮想スティックは radius 64 px を中心からの最大移動距離として、X/Y を `-1..+1` に正規化。
-- スティックのデッドゾーン: 0.25 (中心の手のずれを許容)。
+#### 同セル再タップのトグル仕様
 
-### 9.5.4 ハプティック (Round 3 / Issue #18 で iOS 完全無視を強調)
+- 単発タップ (ドラッグなし) で同じ入力モードを再選択した場合は **空に戻す (トグル)** とする
+- 例: 塗モードで塗セルをタップ → 空に戻る、× モードで × セルをタップ → 空に戻る
+- これも Undo なしの MVP の救済策 (Round 5 / Gemini Pro 指摘)
 
-- 着地、ダメージ、コイン取得時に `navigator.vibrate(10)` を呼ぶ (a11y で off 可能)。
-- **iOS Safari は `navigator.vibrate` を完全に無視する** (Round 3 / Gemini Pro deep)。ガード句で OS 判定するのではなく、副作用なしの no-op として呼び切れば良いが、**振動に依存したゲームデザイン (例: 振動でダメージを伝える) は禁止**する。
-- 触覚の代替として、**画面シェイク (camera shake) + フラッシュ (画面端の赤フェード) + SE** を主軸に据える。これは Android / iOS / PC のどこでも一様に動作する。
-- ゲームパッド経由の振動 (`Gamepad.vibrationActuator`) は §9.6.2 / §9.6.3 で別途扱う。Bluetooth コントローラ経由なら iOS でも動く可能性があるが (機種依存)、Web 側からは制御保証外。
+## 9.5 Keyboard
 
-### 9.5.5 iOS Safari の touch-action 限界とエッジスワイプ (Round 3 / Issue #18, 深刻度: 高)
+### 9.5.1 既定キーバインド
 
-CSS `touch-action: none` は通常のブラウザでスクロール・ピンチ・ダブルタップズームを止められるが、**iOS Safari の画面端 (左端) からの「戻る」エッジスワイプは CSS だけでは完全に止まらない** (Round 3 / Gemini Pro deep)。同様に画面右端からの「進む」エッジスワイプも防げない。
-
-#### 対策
-
-| 対策 | 実装 |
+| キー | アクション |
 |---|---|
-| **仮想ジョイパッドを画面の極端な端に置かない** | 左パッド左端 = `max(env(safe-area-inset-left, 0), 16px)` 以上のオフセット、右ボタン右端 = 同様に `max(env(safe-area-inset-right, 0), 16px)` 以上。エッジスワイプ発火域 (推定 16px) と重ねない |
-| **`touchstart` の preventDefault を `{ passive: false }` で確実に発火** | §9.5.2 既出 |
-| **長押しコンテキストメニュー / テキスト選択を抑止** | CSS: `-webkit-touch-callout: none; user-select: none; -webkit-user-select: none` を `<canvas>` と仮想パッドに適用 |
-| **ダブルタップズームを抑止** | viewport meta: `<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">` |
-| **PWA standalone モード** | ホーム画面追加 + standalone 起動時はエッジスワイプ自体が無効化される (§13.9.3 / §14.10) |
+| `←` `→` `↑` `↓` | カーソル移動 |
+| `Home` / `End` | 行頭 / 行末へ |
+| `PageUp` / `PageDown` | ±5 行 |
+| `Z` / `Space` | Fill |
+| `X` | MarkX |
+| `C` | Erase |
+| `R` | ResetBoard (要確認ダイアログ) |
+| `1` 〜 `9` | (将来) よく使うパズル選択ショートカット |
+| `Esc` | (将来) ポーズ / メニュー |
 
-これらを **CSS / HTML / JS の 3 層で多重防御**する。1 層だけでは iOS Safari の挙動を完全には抑えられない。
+### 9.5.2 リマップ (§96)
 
-## 9.6 Gamepad
+- すべてのキーは設定画面でリマップ可能 (MVP の最低限実装、設定 UI は v1.1 で本格化)
+- 競合チェック (同じキーに複数アクション割り当て不可)
+- LocalStorage に保存
 
-- **接続/切断**: `gamepadconnected` / `gamepaddisconnected` イベントで HUD アイコンに反映 (§9.6.4 自動切替)。
-- **状態取得**: `requestAnimationFrame` 内で `navigator.getGamepads()` をポーリングし、毎 frame の `Gamepad.buttons[i].pressed` / `Gamepad.axes[i]` を読む (Gamepad API には button イベントが存在しないため、ポーリング + edge 判定で代替する)。
-- **edge 生成**: 前 frame の `pressed` を保持し、`now && !prev` を `pressed`、`!now && prev` を `released` として論理ボタン (§9.2) に流す。これを `core/input/gamepad.ts` に集約する (§14.6)。
-- **マッピング**: ブラウザが提供する **`Gamepad.mapping === 'standard'`** を一級市民とし、Switch Pro / DualShock / DualSense / Xbox / Stadia は "standard" で吸収。`mapping !== 'standard'` の場合 (一部古い HID コントローラ) は §9.7 のリマップ画面に強制誘導する。
-- **デッドゾーン**: 一部 Bluetooth コントローラの `axes` がアイドル時に `0` を返さない問題に対し、デッドゾーン **0.18** (radial) を適用。スティック中心からの距離が 0.18 未満の入力はゼロ扱い。
-- **触覚 (Vibration Actuators)**: `Gamepad.vibrationActuator?.playEffect('dual-rumble', { duration, strongMagnitude, weakMagnitude })` を採用。a11y 設定で off 可能 (§96)。Safari は未対応のため optional chaining で安全に no-op 化する。
-- **電池残量**: 一部の `Gamepad` 実装は `Gamepad.battery?.level` を持つ (Chromium のみ, 2026 時点で実験的)。HUD 通知のみに使い、ゲームロジックには影響させない。
+### 9.5.3 preventDefault 制御 (§9.5.5 旧仕様継承)
 
-### 9.6.1 ジョイスティック → 4 方向
+- ゲームに使うキー (`←→↑↓ Z X C R Space`) はブラウザ既定 (スクロール等) を抑止
+- ただし **`<input>` / `<textarea>` / `<select>` / contentEditable** にフォーカス時はスキップ (§Step C / Round 4 Gemini Pro 指摘の対応を継続)
 
-- `axes[0] < -0.4` で Left, `> 0.4` で Right。同じく `axes[1]` で Up/Down。
-- D-Pad と OR で合成 (どちらの入力でも動く)。
+## 9.6 Touch (スマホ / タブレット)
 
-### 9.6.2 イベントモデルとポーリングの併用 (Round 2 / Issue #11)
+### 9.6.1 入力モード切替ボタン
 
-Gamepad API は **接続イベント (gamepadconnected/disconnected) はあるが、ボタン押下イベントは無い** ため、本作では下記のハイブリッド構成を採用する:
+画面下部に 3 ボタンを配置 (常時表示):
 
-| 種別 | 取得方法 | 用途 |
-| :--- | :--- | :--- |
-| 接続/切断 | `addEventListener('gamepadconnected', ...)` | HUD アイコン点灯、入力モード自動切替 (§17.6) |
-| ボタン状態 | rAF 内で `navigator.getGamepads()` ポーリング | 物理 frame 開始時のスナップショット (§9.3) |
-| 触覚再生 | `vibrationActuator.playEffect(...)` (Promise) | 着地・ダメージ・コイン取得 |
-| リマップ取得 | `mapping` プロパティ + `id` 文字列 | 既知 ID テーブルとの照合 (§9.7) |
+```
+[ 塗 ] [ × ] [ 消 ]
+```
 
-ポーリングは rAF と同一フレーム上で行い、入力スナップショット境界 (§9.3 / §14.4) を超えないようにする。
+- 現在のモードはハイライト表示
+- ボタンサイズは **WCAG 44×44px 以上** (§97 / §11 a11y)
 
-### 9.6.3 ハードウェア毎の罠
+### 9.6.2 タップ操作
 
-| 罠 | 対策 |
+- セルをタップ → 現在モードに従って操作 (Fill / MarkX / Erase)
+- ヒント数字をタップ → 取り消し線トグル (§60)
+- 連続タップは 100ms 未満で 2 回目を無視 (誤操作防止)
+
+### 9.6.3 ドラッグ操作 (任意, MVP に含めるか議論)
+
+- タッチドラッグで連続 Fill / MarkX (PC マウスと同等)
+- **MVP に含める方向**: 任天堂ピクロス DS / 3DS で「タッチ + スライドで連続塗り」が標準だったため、慣習として期待される
+- 実装: `touchstart` でモードを確定、`touchmove` で通過セルを追跡
+
+### 9.6.4 ピンチ / 2 本指スワイプ
+
+- MVP では非対応 (15×15 はスマホ非サポート、≤10×10 はピンチ不要)
+- v1.1 で 15×15 のスマホ対応時に導入検討 (§70.4)
+
+### 9.6.5 long-press / コンテキストメニュー抑止
+
+- iOS Safari の long-press でコンテキストメニュー (画像保存メニュー等) が出ないよう CSS:
+  ```css
+  .game-canvas, .puzzle-grid {
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  ```
+- 旧仕様 §9.5.5 と同じ規律を継続
+
+## 9.7 ゲームパッド (任意, MVP 後)
+
+MVP には含めない。v1.1 で対応する場合:
+
+| ボタン | アクション |
 |---|---|
-| Joy-Con (横持ち) は `mapping = ''` で識別不能 | `id` 文字列の部分一致 (`Joy-Con`) で専用プロファイルに振り分け、リマップ UI へ誘導 |
-| DualSense のアダプティブトリガは Web からは不可 | 振動のみ `dual-rumble` で代替 |
-| Bluetooth 経由の Xbox コントローラは `pressed` の reporting rate が不安定 | 5 frame 連続未押下を確認してから `released` 確定 (チャタリング防止) |
-| Gamepad API は **secure context (https/localhost)** でしか動かない | dev サーバを `https://localhost` で起動 (§14.9) |
-| **iOS Safari の Gamepad API は Bluetooth コントローラのボタンマッピングが崩れやすい** (Round 3 / Issue #18) | `mapping !== 'standard'` を検出したら**初回接続時に強制でリマップ画面へ誘導** (§9.7)。`id` 文字列に "DualSense" / "Xbox" 等を含むコントローラでも iOS では別マッピングになるケースを想定 |
-| **iOS Safari の `vibrationActuator` はサポート不安定または動作しない** (Round 3 / Issue #18) | optional chaining (`?.`) で安全に no-op 化。**振動依存のゲームデザインは禁止** — ダメージ時は画面シェイク + フラッシュ + SE で代替 (§9.5.4) |
-| Android Chrome の `vibrationActuator` は機種依存 (Pixel は動く / 一部 OEM は no-op) | 同上、optional chaining。実機テストで挙動確認 |
+| D-pad ←→↑↓ | CursorMove |
+| A | Fill |
+| B | MarkX |
+| X | Erase |
+| Y | (空き、将来用) |
+| L1 / R1 | カテゴリ切替 (パズル選択時) |
+| Start | メニュー |
 
-### 9.6.4 入力デバイス自動切替 (Last Input Wins)
+## 9.8 入力デバイス自動切替 (Last Input Wins)
 
-- 直近 1.5 秒に検出した入力方式 (Keyboard / Pointer / Gamepad) を `lastInputDevice` として保持。
-- HUD のヒント表記 (§17.7) と仮想ジョイパッドの表示/非表示 (§17.6) を `lastInputDevice` 駆動で切替。
-- ゲームパッドが切断された場合は即座に Keyboard / Pointer に降格 (検出から 200ms 以内)。
+複数デバイスを併用するユーザー (例: スマホ + Bluetooth キーボード) のため:
 
-## 9.7 リマップ
+- 直近 1.5 秒に検出した入力方式 (Mouse / Keyboard / Touch / Gamepad) を保持
+- HUD のキーガイド表示と入力モード切替ボタンの表示を切替
+  - Mouse / Keyboard: モード切替ボタンを非表示 (左右クリック / Z X C で代替)
+  - Touch: モード切替ボタンを表示
 
-- 設定画面で論理ボタンに **物理ボタンを再割当て** 可能。
-- 保存先: IndexedDB (`settings.input.binding`)。
-- リマップ中は他の入力を一時停止 (誤検知防止)。
-- "Reset to defaults" を必ず提供。
+## 9.9 旧仕様との対応
 
-## 9.8 入力レイテンシ管理
-
-- イベント発生 → ハンドラ呼び出し → スナップショット形成 → 物理 step。
-- 1 frame (16.7ms) 以内が目標。`performance.now()` で測定。
-- 計測用フックを開発時に有効化、`input_event_to_render_ms` を HUD に表示できるようにする。
-
-## 9.9 自動スクリプト/リプレイ
-
-- 入力スナップショットの列を [frame] -> InputSnapshot で記録 (§94 のリプレイ機能で使用)。
-- フォーマット: 各 frame の bitmask + 軸 (8 bit/frame 程度)。
-- ゴーストや TAS 用としても使える設計。
-- **外部から読み込む InputSnapshot は厳密にバリデーションする**。`ax/ay` は `{-1, 0, 1}` のみ、ボタン状態は列挙値、軸が `NaN` / `Infinity` / 範囲外の場合は読み込み拒否 + 警告。これを怠ると物理エンジンに NaN が伝播し、決定論破壊・無限ループの原因になる。
-
-## 9.10 既知の罠と対策
-
-| 罠 | 対策 |
+| 旧 §90_input (プラットフォーマー) | 新 §90_input (ノノグラム) |
 |---|---|
-| ブラウザ標準ショートカット (Ctrl+W 等) | ホットキーは絶対に取らない。ESC pause のみ。 |
-| 高 DPI 下でタッチ座標がズレる | `pointer.clientX/Y` をビューポートに合わせて変換 |
-| iOS Safari の `100vh` 問題 | viewport を JS で再計算 (`visualViewport`) |
-| ゲームパッドの不検出 | UI で接続確認のヒントを表示 (任意のボタン押下を促す) |
+| 論理ボタン: Left/Right/Up/Down/Jump/Run/Pause | 論理アクション: CursorMove/Fill/MarkX/Erase/ToggleClue/Reset/Timer |
+| 入力スナップショット境界 (60Hz frame) | イベント駆動 (即時反映) |
+| Coyote Time / Jump Buffer | なし |
+| SOCD 後押し優先 | なし (キーボードの ←→ 同時押しは「両方無効」or 直近押下優先 — MVP は両方無効でシンプル) |
+| 1 frame 未満タップの Latch | なし (イベント駆動なので Latch 不要) |
+| Gamepad API ポーリング | MVP では非対応 (v1.1) |
+
+旧 §90_input の物理操作部分は **すべて削除** (Round 6 で旧コード削除)。本章はそれに代わる新仕様。

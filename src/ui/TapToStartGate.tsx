@@ -13,7 +13,7 @@ interface Props {
 export function TapToStartGate({
   onStart,
   message = 'TAP TO START',
-  hint = 'マリオピクセル — Web 2D サイドスクロール',
+  hint = 'ピクセルズ — Web ピクチャーロジック',
 }: Props) {
   return (
     <button

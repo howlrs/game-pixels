@@ -15,9 +15,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'マリオピクセル',
-        short_name: 'マリオピクセル',
-        description: 'Web 2D サイドスクロール プラットフォーマー',
+        name: 'ピクセルズ',
+        short_name: 'ピクセルズ',
+        description: 'Web ピクチャーロジック (ノノグラム)',
         theme_color: '#000000',
         background_color: '#000000',
         // §14.10: フルスクリーン起動 (display_override の fullscreen は iOS で実質 standalone)
@@ -35,12 +35,12 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webp,woff2}'],
-        // §14.10: precache + ステージ JSON は stale-while-revalidate
+        // §14.10: precache + パズル JSON は stale-while-revalidate (旧 stage-json から rename)
         runtimeCaching: [
           {
-            urlPattern: /^.*\/stages\/.*\.json$/,
+            urlPattern: /^.*\/puzzles\/.*\.json$/,
             handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'stage-json' },
+            options: { cacheName: 'puzzle-json' },
           },
         ],
       },
