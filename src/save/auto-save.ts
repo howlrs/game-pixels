@@ -8,6 +8,7 @@ import {
   defaultSaveData,
   loadAndMigrate,
   type ActivePuzzleSave,
+  type CellState,
   type SaveBackend,
   type SaveData,
 } from '@core/index.ts';
@@ -18,18 +19,42 @@ const SAVE_DEBOUNCE_MS = 1500;
 let backend: SaveBackend | null = null;
 let saved: SaveData = defaultSaveData();
 
+// β8.0-β / Gemini Pro 指摘 1: localStorage 容量超過リスク回避のため
+// 永続化する履歴は直近 N 件に制限 (25x25 でも 50 件 ≈ 数百 KB に収まる)
+const PERSIST_HISTORY_LIMIT = 50;
+
 /** 現在の Zustand state を ActivePuzzleSave 形式に変換 */
 function toActivePuzzleSave(): ActivePuzzleSave | null {
   const s = useGame.getState();
   if (!s.currentPuzzle) return null;
+  // β8.0-β / Gemini Pro 指摘 1: history を直近 N 件に絞る
+  // (Zustand state は immutable なので元配列を破壊しない)
+  const fullHistory = s.history;
+  const cursor = s.historyCursor;
+  let trimmedHistory = fullHistory;
+  let trimmedCursor = cursor;
+  if (fullHistory.length > PERSIST_HISTORY_LIMIT) {
+    // cursor 位置を中心に直近 N 件を取る (cursor 以前を多めに残す)
+    const before = Math.min(cursor, PERSIST_HISTORY_LIMIT - 1);
+    const start = cursor - before;
+    trimmedHistory = fullHistory.slice(start, start + PERSIST_HISTORY_LIMIT);
+    trimmedCursor = before;
+  }
+  // β8.0-β / Gemini Pro 指摘 3: Zustand state は既に immutable なので slice 不要
   return {
     puzzleId: s.currentPuzzle.meta.id,
-    cells: s.board.cells.slice(),
-    rowMarks: s.marks.rowMarks.map((r) => r.slice()),
-    colMarks: s.marks.colMarks.map((c) => c.slice()),
+    cells: s.board.cells as CellState[], // 型上 readonly だが Schema 検証は readonly でも通る
+    rowMarks: s.marks.rowMarks as boolean[][],
+    colMarks: s.marks.colMarks as boolean[][],
     startedAtMs: s.startedAtMs,
     elapsedMs: s.elapsedMs,
     isPaused: s.phase === 'paused',
+    history: trimmedHistory.map((snap) => ({
+      cells: snap.board.cells as CellState[],
+      rowMarks: snap.marks.rowMarks as boolean[][],
+      colMarks: snap.marks.colMarks as boolean[][],
+    })),
+    historyCursor: trimmedCursor,
   };
 }
 
@@ -52,8 +77,21 @@ export function mountAutoSave(): () => void {
   saved = loadAndMigrate(backend);
   // 設定 (audio/a11y) は将来 store に反映する場所がない (MVP では UI 未実装) ため、saved に保持のみ。
 
-  const unsub = useGame.subscribe(() => {
-    debouncedSave();
+  // β8.0-β / 重要バグ修正 (Gemini Pro 指摘 2 で簡素化):
+  // useGame.subscribe を全 state 監視で使うと tickTimer が毎フレーム発火し
+  // debouncedSave が永遠に re-arm されて save が走らないバグ (β1.0 から潜在)。
+  // Zustand の subscribe は (next, prev) を渡してくれるので、
+  // 永続化対象 (board / marks / phase / startedAtMs / historyCursor) の差分だけを見る。
+  const unsub = useGame.subscribe((s, prev) => {
+    if (
+      s.board !== prev.board ||
+      s.marks !== prev.marks ||
+      s.phase !== prev.phase ||
+      s.startedAtMs !== prev.startedAtMs ||
+      s.historyCursor !== prev.historyCursor
+    ) {
+      debouncedSave();
+    }
   });
 
   // 中断時は flush
