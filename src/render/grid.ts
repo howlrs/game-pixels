@@ -69,12 +69,17 @@ export function createGridRenderer(app: Application): GridRenderer {
     const availW = canvasW - 16;
     const availH = canvasH - reserveTop - reserveBottom;
 
-    // ヒント領域 ≈ rowHintMaxLen * cellPx * 0.6
+    // ヒント領域比率: 行ヒント幅 = rowHintMaxLen * cellPx * 0.6, 列ヒント高 = colHintMaxLen * cellPx * 0.5
+    // (列ヒントは縦並びなので少し詰めて 0.5)
     const cellByW = availW / (w + rowHintMaxLen * 0.6);
-    const cellByH = availH / (h + colHintMaxLen * 0.6);
-    const cellPx = Math.max(20, Math.floor(Math.min(cellByW, cellByH)));
+    const cellByH = availH / (h + colHintMaxLen * 0.5);
+    // Round 7-E / Gemini Pro deep 指摘 3:
+    // 内部解像度 720 で 25x25 でも 1 マス ≥16px (デスクトップ最小タップ目安)
+    // 5x5 / 10x10 / 15x15 では自動的に 16px より大きくなる
+    // 将来課題: ズーム+パン UI で 44px 担保
+    const cellPx = Math.max(16, Math.floor(Math.min(cellByW, cellByH)));
     const hintLeft = Math.ceil(rowHintMaxLen * cellPx * 0.6);
-    const hintTop = Math.ceil(colHintMaxLen * cellPx * 0.6);
+    const hintTop = Math.ceil(colHintMaxLen * cellPx * 0.5);
     const totalW = hintLeft + w * cellPx;
     const totalH = hintTop + h * cellPx;
     const offsetX = Math.floor((canvasW - totalW) / 2);
@@ -122,6 +127,8 @@ export function createGridRenderer(app: Application): GridRenderer {
       const colMarks = state.marks.colMarks[col] ?? [];
       const x = boardLeftPx + col * cellPx + cellPx / 2;
       // 数字を縦に並べる、下端 = 盤面上端
+      // §30.3 ゼロ行 (clue=[0]): プレイヤーにとって「全マス×」確定の重要情報なので必ず表示
+      // (Round 7-E / Gemini Pro deep 指摘 1)
       for (let i = 0; i < clue.length; i++) {
         const isDone = colMarks[i] === true;
         const txt = new Text({ text: String(clue[i]!), style: isDone ? hintDoneStyle : hintStyle });
@@ -137,6 +144,7 @@ export function createGridRenderer(app: Application): GridRenderer {
       const clue = state.puzzle.rowClues[row]!;
       const rowMarks = state.marks.rowMarks[row] ?? [];
       const y = boardTopPx + row * cellPx + cellPx / 2;
+      // §30.3 ゼロ行は必ず表示 (Round 7-E / Gemini Pro deep 指摘 1)
       // 数字を横に並べる、右端 = 盤面左端
       for (let i = 0; i < clue.length; i++) {
         const isDone = rowMarks[i] === true;

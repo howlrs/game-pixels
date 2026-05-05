@@ -19,11 +19,11 @@ export function PuzzleSelect({ onLoaded }: Props) {
       .catch((e) => setError(`パズル一覧の取得に失敗: ${String(e)}`));
   }, []);
 
-  // 画面幅判定 (§97.11): スマホ (<768px) で 15×15 はサポート外
+  // 画面幅判定 (§97.11): スマホ (<768px) で 15×15 / 25×25 はサポート外
   const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 768;
 
   function isUnsupported(p: PuzzleMeta): boolean {
-    return isSmallScreen && p.category === '15x15';
+    return isSmallScreen && (p.category === '15x15' || p.category === '25x25');
   }
 
   async function handleSelect(p: PuzzleMeta) {

@@ -17,7 +17,9 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:qa": "bun test src/qa/",
-    "validate-puzzles": "bun scripts/validate-puzzle.mjs"
+    "validate-puzzles": "bun scripts/validate-puzzle.mjs",
+    "build-puzzles": "bun scripts/build-puzzles.mjs",
+    "build-index": "bun scripts/build-index.mjs"
   },
   "dependencies": {
     "bitecs": "0.4.0",

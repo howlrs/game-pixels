@@ -7,8 +7,15 @@ import { attachGridInput } from '@input/index.ts';
 import { detectMobile } from '@platform/detect.ts';
 import { createGridRenderer } from './grid.ts';
 
-const INTERNAL_W = 480;
-const INTERNAL_H = 480; // ノノグラムは正方形に近い盤面なので 16:9 ではなく正方形寄り
+// Round 7-E: 25x25 大型盤面でもヒント数字がはっきり読めるよう 720 に拡大
+// (5x5 は CSS 側で contain スケーリングされるので問題なし)
+//
+// Gemini Pro deep 指摘 4 (将来課題): 5x5/10x10 では 720 は過剰な GPU 負荷。
+// 理想は puzzle 切替時に app.renderer.resize() で動的化するが、
+// Pixi.js v8 の resize は中身の Container 座標再計算が必要で複雑性増。
+// 現状は固定 720 で許容 (モバイルでも 1MP 以下、Pixi.js が DPR 制御)。
+const INTERNAL_W = 720;
+const INTERNAL_H = 720;
 
 export interface GameHandle {
   start: () => void;
