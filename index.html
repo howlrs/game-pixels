@@ -69,6 +69,12 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        /* β6.0-α: HUD (上部 ~64px) と ModeButtons (下部 ~96px) 領域を予約し、
+           盤面が大型化 (25x25=1000px 内部解像度) しても UI と衝突しない。
+           余裕を含めて HUD 64 / ModeBtn 96 の予約。 */
+        padding: max(64px, calc(var(--safe-top, 0px) + 64px)) 8px
+                 max(96px, calc(var(--safe-bottom, 0px) + 96px)) 8px;
+        box-sizing: border-box;
       }
       .canvas-container > canvas {
         image-rendering: pixelated;

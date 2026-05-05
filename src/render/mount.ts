@@ -7,15 +7,22 @@ import { attachGridInput } from '@input/index.ts';
 import { detectMobile } from '@platform/detect.ts';
 import { createGridRenderer } from './grid.ts';
 
-// Round 7-E: 25x25 大型盤面でもヒント数字がはっきり読めるよう 720 に拡大
-// (5x5 は CSS 側で contain スケーリングされるので問題なし)
+// β6.0-α: パズルサイズに応じて canvas 解像度を動的化 (Round 7-E Gemini deep 指摘 4 解消)。
+// 5x5 は 480 で十分、25x25 は 1000 まで広げてヒント数字を読みやすく。
+// app.renderer.resize() を puzzle 切替時に呼び、その後 redraw() で grid を再計算。
 //
-// Gemini Pro deep 指摘 4 (将来課題): 5x5/10x10 では 720 は過剰な GPU 負荷。
-// 理想は puzzle 切替時に app.renderer.resize() で動的化するが、
-// Pixi.js v8 の resize は中身の Container 座標再計算が必要で複雑性増。
-// 現状は固定 720 で許容 (モバイルでも 1MP 以下、Pixi.js が DPR 制御)。
-const INTERNAL_W = 720;
-const INTERNAL_H = 720;
+// 設計: puzzleSize → 内部解像度の単純関数 + 初期化時は中央値 720 で確保
+// (パズル未ロード時の初期描画用、ロード時に必ず再計算される)。
+const INITIAL_INTERNAL = 720;
+
+function resolutionFor(maxDim: number): number {
+  // ヒント数字を含む合計セル換算 ≈ maxDim + 余白 → 1 マス約 36px を狙う
+  // 5x5 → 480, 10x10 → 600, 15x15 → 720, 25x25 → 1000
+  if (maxDim <= 5) return 480;
+  if (maxDim <= 10) return 600;
+  if (maxDim <= 15) return 720;
+  return 1000;
+}
 
 export interface GameHandle {
   start: () => void;
@@ -30,8 +37,8 @@ export interface GameHandle {
 export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
   const app = new Application();
   await app.init({
-    width: INTERNAL_W,
-    height: INTERNAL_H,
+    width: INITIAL_INTERNAL,
+    height: INITIAL_INTERNAL,
     backgroundColor: 0x101010,
     antialias: false,
     preference: 'webgpu',
@@ -42,10 +49,21 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
   const renderer = createGridRenderer(app);
   const detachInput = attachGridInput(app, () => renderer.layout());
 
+  // β6.0-α: パズル切替を検知して canvas 解像度を動的更新
+  // Gemini 指摘: app.canvas.width は物理ピクセル (DPR×論理) なので比較は target 自体をキャッシュ
+  let lastTargetResolution = INITIAL_INTERNAL;
+  function ensureResolution(puzzle: { meta: { width: number; height: number } }): void {
+    const target = resolutionFor(Math.max(puzzle.meta.width, puzzle.meta.height));
+    if (target === lastTargetResolution) return;
+    app.renderer.resize(target, target);
+    lastTargetResolution = target;
+  }
+
   // Zustand subscribe: 関連 state が変わったら redraw
   const redraw = (): void => {
     const s = useGame.getState();
     if (!s.currentPuzzle) return;
+    ensureResolution(s.currentPuzzle);
     renderer.draw({
       board: s.board,
       puzzle: s.currentPuzzle,
@@ -95,6 +113,7 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
   // 初期描画 (パズルが既にロード済の場合)
   const s = useGame.getState();
   if (s.currentPuzzle) {
+    ensureResolution(s.currentPuzzle);
     renderer.draw({
       board: s.board,
       puzzle: s.currentPuzzle,
