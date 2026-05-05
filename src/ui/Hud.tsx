@@ -27,6 +27,8 @@ export function Hud() {
   const puzzle = useGame((s) => s.currentPuzzle);
   const board = useGame((s) => s.board);
   const reset = useGame((s) => s.resetBoard);
+  // β7.0-β: 一時停止
+  const pause = useGame((s) => s.pauseTimer);
   // β5.0-α: undo/redo
   const undo = useGame((s) => s.undo);
   const redo = useGame((s) => s.redo);
@@ -171,6 +173,15 @@ export function Hud() {
           title="設定"
         >
           <span aria-hidden="true">⚙</span>
+        </button>
+        <button
+          type="button"
+          onClick={pause}
+          className="hud-icon-btn"
+          aria-label="一時停止"
+          title="一時停止"
+        >
+          <span aria-hidden="true">⏸</span>
         </button>
         <button
           type="button"

@@ -1,27 +1,26 @@
-// docs §92.3.2: バックグラウンド復帰時の TAP TO RESUME。
-// visibilitychange ハンドラ (src/platform/visibility.ts) で phase='paused' に遷移し、
-// このコンポーネントが表示される。タップで AudioContext.resume() (将来) + 物理再開。
+// docs §92.3.2 / β7.0-β: バックグラウンド復帰時または手動 pause 時の TAP TO RESUME。
+// visibility.ts の handler または HUD の ⏸ ボタンで phase='paused' に遷移し、
+// このコンポーネントが表示される。タップで物理再開 (useGame.resumeTimer)。
 
-import { useHud } from './hud-store.ts';
+import { useGame } from '@game/index.ts';
 
-interface Props {
-  onResume: () => void;
-}
-
-export function ResumeGate({ onResume }: Props) {
+export function ResumeGate() {
+  const phase = useGame((s) => s.phase);
+  const resume = useGame((s) => s.resumeTimer);
+  if (phase !== 'paused') return null;
   return (
     <button
       type="button"
       className="gate"
       onPointerDown={() => {
         // ⚠ ジェスチャー内同期呼び出し (§92.3.2)
-        onResume();
-        useHud.getState().setPhase('playing');
+        resume();
       }}
+      aria-label="ゲームを再開"
     >
       <div>
         TAP TO RESUME
-        <small>音と入力を再開します</small>
+        <small>タップして再開</small>
       </div>
     </button>
   );

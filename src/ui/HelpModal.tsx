@@ -59,6 +59,15 @@ const SHORTCUT_GROUPS: { title: string; rows: ShortcutRow[] }[] = [
     ],
   },
   {
+    title: 'メニュー操作',
+    rows: [
+      { keys: ['⏸ ボタン'], description: '一時停止 (HUD 右上)' },
+      { keys: ['⚙ ボタン'], description: '設定モーダルを開く' },
+      { keys: ['↶ ↷ ボタン'], description: '元に戻す / やり直す' },
+      { keys: ['🔊 ボタン'], description: '音響オン/オフ' },
+    ],
+  },
+  {
     title: 'その他',
     rows: [
       { keys: ['?'], description: 'このヘルプを開く / 閉じる' },
