@@ -48,10 +48,36 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,webp,woff2}'],
-        // §14.10: precache + パズル JSON は stale-while-revalidate (旧 stage-json から rename)
+        // β12.0-α SSG: vite build 時点では index.html (top) しか precache 対象に無い。
+        // 27 個の SSG HTML は build:ssg ステップで後から生成される。
+        // 一方、SW は precache 済 index.html を navigation fallback として返してしまうため、
+        // /puzzles/<cat>/<id>/ をリロードすると top の HTML (= __PIXELS_INITIAL_PATH__ = "/")
+        // が返り TAP TO START が表示される問題が発生していた (β12.0-β で修正したクライアントロジックが
+        // SW で潰される)。
+        //
+        // Gemini Pro deep 推奨案 A: navigateFallback を無効化 + navigation request は NetworkFirst で
+        // 実 HTML を取得、オフライン時は訪問済キャッシュから返す。
+        // - SEO 影響: ボットは SW を bypass するので皆無
+        // - オフライン: 訪問済ページのみ表示、未訪問は network error (案 B のように全 prerender 同梱は
+        //   将来パズル数が増えたときに precache 肥大化するため不採用)
+        globPatterns: ['**/*.{js,css,svg,png,ico,webp,woff2}'],
+        // β12.0.2: HTML を precache から外し navigation 専用ランタイムキャッシュへ
+        navigateFallback: null,
+        // Navigation Preload: SW 起動中の並行通信で高速化 (Safari 16+ 対応、未対応は graceful degrade)
+        navigationPreload: true,
         runtimeCaching: [
           {
+            // navigation request (HTML) は NetworkFirst で常に新鮮な HTML を取得
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages-cache',
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 },
+            },
+          },
+          {
+            // パズル JSON は SWR (頻繁な変更なし、即時表示優先)
             urlPattern: /^.*\/puzzles\/.*\.json$/,
             handler: 'StaleWhileRevalidate',
             options: { cacheName: 'puzzle-json' },
