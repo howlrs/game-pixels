@@ -1,0 +1,56 @@
+# docs §14.8 / §14.14.3 / §14.15.5: 本リポジトリの CI ワークフロー。
+# - PR と main push で実行
+# - bun install --frozen-lockfile (bun.lock に厳密一致しないとエラー)
+# - typecheck + bun test + build を必須通過させる
+# - Renovate PR が来た時もこの CI が走り、E2E 通過時のみ自動マージ可能 (Renovate 側の設定で)
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 同 PR への push で進行中の workflow をキャンセル (CI 並列の節約)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.6
+
+      # docs §14.14.1 で固定: Bun 1.2.0
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2.0.0
+        with:
+          bun-version: '1.2.0'
+
+      - name: Install (frozen lockfile)
+        run: bun install --frozen-lockfile
+
+      - name: Type check
+        run: bun run typecheck
+
+      - name: Unit tests
+        run: bun test
+
+      - name: Build (production)
+        run: bun run build
+
+      - name: Verify PWA outputs exist
+        run: |
+          test -f dist/sw.js
+          test -f dist/manifest.webmanifest
+          test -f dist/registerSW.js
+          test -f dist/index.html
+          echo "✅ PWA outputs verified"

@@ -1,0 +1,7 @@
+# Cloudflare Pages: SPA fallback。
+# MVP は履歴 API を使っていないため必須ではないが、将来 React Router 等を導入した時のため事前配置。
+# 公式: https://developers.cloudflare.com/pages/configuration/redirects/
+
+# 静的ファイル (assets / stages / sw.js / manifest 等) はそのまま配信
+# → 上記以外の path は index.html にフォールバック (200 ステータスのまま)
+/*    /index.html   200
