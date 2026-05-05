@@ -26,7 +26,12 @@ export default defineConfig({
         orientation: 'any',
         start_url: '/',
         scope: '/',
-        icons: [],
+        // SVG アイコン 1 種で density 不問にカバー (Step E MVP)。PNG 派生は将来追加。
+        icons: [
+          { src: '/icon-192.svg', sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
+          { src: '/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any' },
+          { src: '/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' },
+        ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webp,woff2}'],
