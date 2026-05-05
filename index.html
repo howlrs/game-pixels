@@ -464,9 +464,46 @@
         transform: none;
       }
       .puzzle-select button.unsupported { background: #333; }
-      .puzzle-select button strong { font-size: 16px; }
+      /* β6.0-β: クリア済パズルは緑系の枠で識別 */
+      .puzzle-select button.cleared {
+        border-color: rgba(85, 204, 119, 0.5);
+        background: linear-gradient(135deg, #2a2a2a 0%, #2a3a2a 100%);
+      }
+      .puzzle-select button.cleared:hover {
+        border-color: #55cc77;
+      }
+      .puzzle-select button strong {
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
       .puzzle-select button small { font-size: 12px; opacity: 0.7; }
       .puzzle-select button em { font-size: 11px; color: #ffaa55; font-style: normal; }
+      .puzzle-cleared-mark {
+        color: #55cc77;
+        font-size: 14px;
+        background: rgba(85, 204, 119, 0.15);
+        padding: 0 6px;
+        border-radius: 4px;
+        line-height: 1.4;
+        font-weight: bold;
+      }
+      .puzzle-select-overall {
+        display: block;
+        font-size: 13px;
+        opacity: 0.7;
+        font-weight: normal;
+        margin-top: 4px;
+        color: #ccc;
+      }
+      .puzzle-select-cat-progress {
+        font-size: 12px;
+        opacity: 0.7;
+        font-weight: normal;
+        margin-left: 8px;
+        color: #ccc;
+      }
       .puzzle-select.error { color: #ff7777; padding: 24px; }
       @media (max-width: 480px) {
         .puzzle-select h1 { font-size: 22px; margin: 0 0 16px; }
