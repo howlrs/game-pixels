@@ -5,5 +5,6 @@ export { GameView } from './GameView.tsx';
 export { Hud } from './Hud.tsx';
 export { ModeButtons } from './ModeButtons.tsx';
 export { PuzzleSelect } from './PuzzleSelect.tsx';
+export { ResultsPage } from './ResultsPage.tsx';
 export { TapToStartGate } from './TapToStartGate.tsx';
-export { ClearOverlay } from './ClearOverlay.tsx';
+export { ClearBanner } from './ClearBanner.tsx';

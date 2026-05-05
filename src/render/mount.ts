@@ -13,6 +13,11 @@ const INTERNAL_H = 480; // ノノグラムは正方形に近い盤面なので 1
 export interface GameHandle {
   start: () => void;
   destroy: () => void;
+  /**
+   * Round 7-B: クリア時のセル回転アニメ。
+   * App.tsx 側で phase 'cleared' に入ったタイミングで発火。完了後 onComplete が呼ばれる。
+   */
+  playClearAnimation: (onComplete: () => void) => void;
 }
 
 export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
@@ -84,6 +89,24 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
       detachInput();
       renderer.destroy();
       app.destroy(true, { children: true, texture: true, textureSource: true });
+    },
+    playClearAnimation: (onComplete) => {
+      const cs = useGame.getState();
+      if (!cs.currentPuzzle) {
+        // パズル未ロードでは即終了 (skip 時保証, Gemini deep 指摘)
+        onComplete();
+        return;
+      }
+      renderer.playClearAnimation(
+        {
+          board: cs.board,
+          puzzle: cs.currentPuzzle,
+          marks: cs.marks,
+          cursor: cs.cursor,
+          cleared: true,
+        },
+        onComplete,
+      );
     },
   };
 }
