@@ -20,7 +20,7 @@ import { mountVisibilityHandler } from '@platform/visibility.ts';
 import { isStandalone, mountInstallPromptCapture } from '@platform/install.ts';
 import { updateHighContrast, updateReduceMotion } from '@platform/index.ts';
 import { mountAutoSave, recordClear, getSavedData } from '@save/index.ts';
-import { mountAudio, setVolume } from '@audio/index.ts';
+import { mountAudio, setBgmMaster, setVolume, useAudio } from '@audio/index.ts';
 import { useGame } from '@game/index.ts';
 import type { GameHandle } from '@render/index.ts';
 import { ClearBanner } from './ClearBanner.tsx';
@@ -66,6 +66,12 @@ export function App() {
       master: settings?.audio?.master ?? 0.7,
       se: settings?.audio?.se ?? 0.7,
     });
+    // β11.0-α: BGM 設定リストア (master / volume は Zustand 経由で同期、bgmEnabled はデフォルト false)
+    setBgmMaster(settings?.audio?.master ?? 0.7);
+    const audioState = useAudio.getState();
+    audioState.setBgmVolume(settings?.audio?.bgm ?? 0.5);
+    // bgmEnabled は phase=playing になった時に自動 start するので、ここではフラグだけ反映
+    audioState.setBgmEnabled(settings?.audio?.bgmEnabled ?? false);
     // β3.0-β: reduceMotion を起動時に body 属性に反映
     updateReduceMotion(settings?.a11y?.reduceMotion ?? false);
     // β4.0-β: highContrast も同様に

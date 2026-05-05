@@ -265,6 +265,12 @@
         width: 100%;
         accent-color: #ffcc00;
       }
+      /* β11.0-α / Gemini Pro 指摘: BGM スライダーは bgmEnabled=false で disabled になるため
+         視覚的フィードバックを付与 (既存パターン: opacity 0.5 + cursor not-allowed と統一) */
+      .settings-row input[type='range']:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
       .settings-row output {
         text-align: right;
         font-variant-numeric: tabular-nums;
