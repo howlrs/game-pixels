@@ -23,9 +23,30 @@ const COLOR_GRID_LINE_STRONG = 0x888888; // 5 セルごと
 const COLOR_FILLED = 0xeeeeee;
 const COLOR_X = 0xff5577;
 const COLOR_HINT_TEXT = 0xeeeeee;
-const COLOR_HINT_DONE = 0x666666; // 取り消し線済
+const COLOR_HINT_DONE = 0x666666; // ユーザー手動マーク (toggleRowMark/toggleColMark)
+// β3.0-α: 行/列が正解通り塗られている時の自動完成色 (緑系)
+const COLOR_HINT_AUTO_COMPLETE = 0x55cc77;
 const COLOR_CURSOR = 0xffcc00;
 const COLOR_CLEAR_OVERLAY = 0x55ff77;
+
+/**
+ * β3.0-α: 行 / 列の塗りパターンが正解と一致するか判定。
+ * - cells[i] === FILLED ⇔ expected[i] === 1 がすべて成立で true
+ * - X_MARKED / EMPTY は両方 0 扱い (= 塗っていない)
+ * - false の場合は「まだ完成していない」(過剰塗り or 不足塗り)
+ */
+function isLineComplete(
+  cells: ReadonlyArray<CellState | undefined>,
+  expected: ReadonlyArray<0 | 1>,
+): boolean {
+  if (cells.length !== expected.length) return false;
+  for (let i = 0; i < expected.length; i++) {
+    const isFilled = cells[i] === FILLED;
+    const shouldFill = expected[i] === 1;
+    if (isFilled !== shouldFill) return false;
+  }
+  return true;
+}
 
 export interface GridRenderer {
   /** state 変化時に呼ぶ。全描画。 */
@@ -121,17 +142,52 @@ export function createGridRenderer(app: Application): GridRenderer {
       fontFamily: 'monospace',
       align: 'center',
     });
+    // β3.0-α: 自動完成スタイル (行/列が正解通り塗られている時)
+    const hintAutoCompleteStyle = new TextStyle({
+      fill: COLOR_HINT_AUTO_COMPLETE as ColorSource,
+      fontSize: Math.max(10, Math.floor(cellPx * 0.45)),
+      fontFamily: 'monospace',
+      fontWeight: 'bold',
+      align: 'center',
+    });
+
+    // β3.0-α: 各行/列の自動完成判定 (1 回だけ計算してループで再利用)
+    const rowComplete: boolean[] = new Array(height).fill(false);
+    const colComplete: boolean[] = new Array(width).fill(false);
+    if (state.puzzle.solution.length === height) {
+      for (let r = 0; r < height; r++) {
+        const expected = state.puzzle.solution[r];
+        if (!expected || expected.length !== width) continue;
+        const rowCells: CellState[] = new Array(width);
+        for (let c = 0; c < width; c++) rowCells[c] = state.board.cells[r * width + c] ?? EMPTY;
+        rowComplete[r] = isLineComplete(rowCells, expected);
+      }
+      for (let c = 0; c < width; c++) {
+        const expected: (0 | 1)[] = new Array(height);
+        for (let r = 0; r < height; r++) expected[r] = state.puzzle.solution[r]?.[c] ?? 0;
+        const colCells: CellState[] = new Array(height);
+        for (let r = 0; r < height; r++) colCells[r] = state.board.cells[r * width + c] ?? EMPTY;
+        colComplete[c] = isLineComplete(colCells, expected);
+      }
+    }
 
     for (let col = 0; col < width; col++) {
       const clue = state.puzzle.colClues[col]!;
       const colMarks = state.marks.colMarks[col] ?? [];
       const x = boardLeftPx + col * cellPx + cellPx / 2;
+      const isAutoComplete = colComplete[col]!;
       // 数字を縦に並べる、下端 = 盤面上端
       // §30.3 ゼロ行 (clue=[0]): プレイヤーにとって「全マス×」確定の重要情報なので必ず表示
       // (Round 7-E / Gemini Pro deep 指摘 1)
       for (let i = 0; i < clue.length; i++) {
         const isDone = colMarks[i] === true;
-        const txt = new Text({ text: String(clue[i]!), style: isDone ? hintDoneStyle : hintStyle });
+        // β3.0-α: 優先順 = 自動完成 > 手動マーク済 > 通常
+        const style = isAutoComplete
+          ? hintAutoCompleteStyle
+          : isDone
+            ? hintDoneStyle
+            : hintStyle;
+        const txt = new Text({ text: String(clue[i]!), style });
         txt.anchor.set(0.5, 1);
         txt.x = x;
         txt.y = boardTopPx - 2 - (clue.length - 1 - i) * (cellPx * 0.5);
@@ -144,11 +200,17 @@ export function createGridRenderer(app: Application): GridRenderer {
       const clue = state.puzzle.rowClues[row]!;
       const rowMarks = state.marks.rowMarks[row] ?? [];
       const y = boardTopPx + row * cellPx + cellPx / 2;
+      const isAutoComplete = rowComplete[row]!;
       // §30.3 ゼロ行は必ず表示 (Round 7-E / Gemini Pro deep 指摘 1)
       // 数字を横に並べる、右端 = 盤面左端
       for (let i = 0; i < clue.length; i++) {
         const isDone = rowMarks[i] === true;
-        const txt = new Text({ text: String(clue[i]!), style: isDone ? hintDoneStyle : hintStyle });
+        const style = isAutoComplete
+          ? hintAutoCompleteStyle
+          : isDone
+            ? hintDoneStyle
+            : hintStyle;
+        const txt = new Text({ text: String(clue[i]!), style });
         txt.anchor.set(1, 0.5);
         txt.x = boardLeftPx - 4 - (clue.length - 1 - i) * (cellPx * 0.6);
         txt.y = y;
