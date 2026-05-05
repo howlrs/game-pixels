@@ -17,6 +17,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
+  formatTime,
   loadPuzzle,
   loadPuzzleIndex,
   type PuzzleCategory,
@@ -33,13 +34,6 @@ interface Props {
   onReturnToSelect: () => void;
   /** 今回クリアが新ベスト記録か (App.tsx で recordClear の戻り値から判定済み) */
   isNewBest: boolean;
-}
-
-function formatTime(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  const mm = Math.floor(totalSec / 60).toString().padStart(2, '0');
-  const ss = (totalSec % 60).toString().padStart(2, '0');
-  return `${mm}:${ss}`;
 }
 
 /**
