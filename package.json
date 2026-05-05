@@ -15,7 +15,9 @@
     "format": "biome format --write .",
     "check": "biome check .",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "test:qa": "bun test src/qa/",
+    "validate-puzzles": "bun scripts/validate-puzzle.mjs"
   },
   "dependencies": {
     "bitecs": "0.4.0",

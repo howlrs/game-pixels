@@ -57,6 +57,7 @@ export default defineConfig({
       '@save': resolve(__dirname, 'src/save'),
       '@ui': resolve(__dirname, 'src/ui'),
       '@platform': resolve(__dirname, 'src/platform'),
+      '@qa': resolve(__dirname, 'src/qa'),
     },
   },
   server: {
