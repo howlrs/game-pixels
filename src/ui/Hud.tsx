@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { computeProgress, formatTime } from '@core/index.ts';
 import { useAudio } from '@audio/index.ts';
 import { useGame, VIEWPORT_MAX_SCALE, VIEWPORT_MIN_SCALE } from '@game/index.ts';
+import { navigate } from '@platform/index.ts';
 import { HelpModal } from './HelpModal.tsx';
 import { SettingsModal } from './SettingsModal.tsx';
 
@@ -29,6 +30,12 @@ export function Hud() {
   const reset = useGame((s) => s.resetBoard);
   // β7.0-β: 一時停止
   const pause = useGame((s) => s.pauseTimer);
+  const setPhase = useGame((s) => s.setPhase);
+  // β12.0-β: パズル一覧へ戻る (URL も pushState で /puzzles/ に書き換え)
+  function goToPuzzleSelect() {
+    setPhase('puzzle-select');
+    navigate({ kind: 'puzzles-index' });
+  }
   // β5.0-α: undo/redo
   const undo = useGame((s) => s.undo);
   const redo = useGame((s) => s.redo);
@@ -125,9 +132,21 @@ export function Hud() {
   return (
     <div className="hud">
       {puzzle && (
-        <span className="hud-title" aria-label={`現在のパズル: ${puzzle.meta.title}`}>
-          {puzzle.meta.title}
-        </span>
+        <div className="hud-title-block">
+          {/* β12.0-β: パズル一覧へ戻る (URL pushState 同時) */}
+          <button
+            type="button"
+            onClick={goToPuzzleSelect}
+            className="hud-back-btn"
+            aria-label="パズル一覧へ戻る"
+            title="パズル一覧へ戻る"
+          >
+            ← <span className="hud-back-label">パズル選択</span>
+          </button>
+          <span className="hud-title" aria-label={`現在のパズル: ${puzzle.meta.title}`}>
+            {puzzle.meta.title}
+          </span>
+        </div>
       )}
       <div className="hud-stats">
         {/* aria-hidden でタイマー読み上げを抑制 (毎秒スパム回避) */}

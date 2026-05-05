@@ -162,17 +162,65 @@
       .hud {
         display: contents;
       }
-      .hud-title {
+      /* β12.0-β: hud-title-block で「← パズル選択」+ タイトル を 2 列横並びに */
+      .hud-title-block {
         position: fixed;
         top: max(8px, var(--safe-top, 0px));
         left: max(12px, var(--safe-left, 0px));
+        z-index: 11;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        /* Gemini Pro 指摘: 極小画面 (320px) で見切れ防止 → max-width 緩和 + flex-shrink で title 側のみ縮ませる */
+        max-width: calc(100vw - 24px);
+        min-width: 0;
+      }
+      .hud-title-block .hud-title {
+        flex-shrink: 1;
+        min-width: 0;
+      }
+      .hud-back-btn {
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        border: 1px solid transparent;
+        padding: 4px 10px;
+        font: inherit;
+        font-family: monospace;
+        font-size: 13px;
+        cursor: pointer;
+        /* β12.0-β / Gemini Pro 指摘: 戻るは重要機能のため WCAG タッチ最小 44px 確保 */
+        min-height: 44px;
+        min-width: 44px;
+        border-radius: 999px;
+        line-height: 1;
+        transition: background 0.15s, border-color 0.15s;
+        white-space: nowrap;
+      }
+      .hud-back-btn:hover {
+        background: rgba(0, 0, 0, 0.8);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+      /* Gemini Pro 指摘: focus-visible で輪郭可視化 */
+      .hud-back-btn:focus-visible {
+        outline: 2px solid #ffcc00;
+        outline-offset: 2px;
+      }
+      .hud-back-label {
+        margin-left: 2px;
+      }
+      /* スマホで「パズル選択」ラベル隠して矢印だけ */
+      @media (max-width: 480px) {
+        .hud-back-label {
+          display: none;
+        }
+      }
+      .hud-title {
         padding: 4px 10px;
         background: rgba(0, 0, 0, 0.6);
         border-radius: 999px;
         font-family: monospace;
         font-size: 13px;
         color: #fff;
-        z-index: 11;
         max-width: 35vw;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -913,6 +961,12 @@
       }
       body[data-high-contrast='true'] .hud-title,
       body[data-high-contrast='true'] .hud-stats {
+        background: #000;
+        color: #fff;
+        border: 1px solid #fff;
+      }
+      /* β12.0-β / Gemini Pro 指摘: rgba は HC 不十分 → solid 黒 + 白枠で確実な可視性 */
+      body[data-high-contrast='true'] .hud-back-btn {
         background: #000;
         color: #fff;
         border: 1px solid #fff;

@@ -39,6 +39,24 @@ import { ResultsPage } from './ResultsPage.tsx';
 import { ResumeGate } from './ResumeGate.tsx';
 import { TapToStartGate } from './TapToStartGate.tsx';
 
+// β12.0-β: 初回 render の前 (モジュール load 直後) に URL を解析して
+// 初期 phase を上書きする (TapToStartGate のチラつき防止)。
+// パズル個別 URL の場合、loadPuzzle が完了するまで一時的な空白を見せる代わりに
+// puzzle-select を先出しすると遷移後にもう一度切り替わって不安定なため、
+// puzzle 直接アクセス時は 'puzzle-select' をスキップして直接 'playing' (board は空) で
+// loadPuzzle 完了を待つ。
+const INITIAL_TARGET = parsePath(getInitialPath());
+if (INITIAL_TARGET.kind === 'puzzles-index' || INITIAL_TARGET.kind === 'category-index') {
+  useGame.setState({ phase: 'puzzle-select' });
+} else if (INITIAL_TARGET.kind === 'puzzle') {
+  // 一旦 'puzzle-select' に置いておき、loadPuzzle 完了後に 'playing' に遷移する。
+  // (TapToStartGate を出さないことが重要。puzzle-select は loadPuzzle 完了するまで一瞬見えるが
+  //  目的のパズル URL に来た訳なのでむしろ自然なフォールバック。
+  //  loadPuzzle.then で 'playing' に切り替わる。)
+  useGame.setState({ phase: 'puzzle-select' });
+}
+// else: kind === 'top' → 既定の 'tap-to-start' のまま
+
 export function App() {
   const phase = useGame((s) => s.phase);
   const setPhase = useGame((s) => s.setPhase);
@@ -90,33 +108,21 @@ export function App() {
     };
   }, []);
 
-  // β12.0-α: 起動時に URL を読んで該当パズルを直接ロード (SSG された prerender HTML 経由)
-  // 失敗時 (puzzle 不在等) はサイレントに 'tap-to-start' のままにする
+  // β12.0-α / β12.0-β: 起動時に URL を読んで該当パズルを直接ロード (SSG prerender 経由)。
+  // 初期 phase はモジュールトップで既に設定済み。ここでは puzzle 直接アクセス時のみ fetch を kick する。
+  // 失敗時 (puzzle 不在等) は puzzle-select のまま (ユーザーが他のパズルを選べる)。
   useEffect(() => {
-    const target = parsePath(getInitialPath());
-    switch (target.kind) {
-      case 'top':
-        return;
-      case 'puzzles-index':
-      case 'category-index':
-        // ユーザー操作なしで puzzle-select に遷移 (TapToStart は省略)
-        setPhase('puzzle-select');
-        return;
-      case 'puzzle': {
-        // 該当パズルを直接ロード → playing
-        const url = `/puzzles/${target.category}/${target.id}.json`;
-        loadPuzzleData(url)
-          .then((data) => {
-            useGame.getState().loadPuzzle(data);
-          })
-          .catch((e) => {
-            console.warn('[router] puzzle direct load failed', e);
-            // フォールバック: tap-to-start のまま
-          });
-        return;
-      }
-    }
-  }, [setPhase]);
+    if (INITIAL_TARGET.kind !== 'puzzle') return;
+    const url = `/puzzles/${INITIAL_TARGET.category}/${INITIAL_TARGET.id}.json`;
+    loadPuzzleData(url)
+      .then((data) => {
+        useGame.getState().loadPuzzle(data);
+      })
+      .catch((e) => {
+        console.warn('[router] puzzle direct load failed', e);
+        // フォールバック: puzzle-select (既に setState 済) のまま
+      });
+  }, []);
 
   // クリア時にベストタイム記録 + セル回転アニメ発火 → 完了で results 遷移
   useEffect(() => {
