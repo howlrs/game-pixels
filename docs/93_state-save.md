@@ -1,172 +1,245 @@
-# 93. セーブ/ステート
+# 93. セーブ / ステート
 
-## 13.1 設計目標
+## 13.1 設計目標 (Round 5 / ピクセルズ仕様)
 
-- ローカル永続化を **IndexedDB** で実装。失敗時のフォールバック (`localStorage`) も用意。
-- セーブは小さく、トランザクション安全。クリア時の自己修復が容易。
-- 将来クラウド同期 (任意) を追加できる抽象層 (`SaveBackend` interface)。
-- 決定論シードを保存し、リプレイを再現可能にする。
+- ローカル永続化を **LocalStorage** で実装 (旧 IndexedDB 方針は MVP には過剰、Gemini Pro deep 指摘で変更)
+- セーブは小さく (1 パズルあたり ~1KB)、書き込みは **debounce** (数秒、または中断時)
+- 進行中のパズル + クリア履歴 + ベストタイム + 設定 を保存
+- 将来クラウド同期 (任意) を追加できる抽象層 (`SaveBackend` interface)
+- iOS Safari の 7 日無アクセス削除リスクは継続課題 (§13.9)、ホーム画面追加促進で軽減
 
 ## 13.2 データモデル
 
-```ts
-interface SaveFile {
-  version: number;                  // schema version
-  profile: { id: string; name: string; createdAt: number };
-  progress: {
-    worldsUnlocked: number;
-    stagesCleared: { [key: string]: { time: number; score: number } };
-    coins: number;
-    lives: number;
-    highScore: number;
-  };
-  settings: {
-    input: { binding: InputBinding };
-    audio: { master: number; bgm: number; se: number; muteOnBlur: boolean };
-    a11y: { reduceMotion: boolean; highContrast: boolean; subtitles: boolean; coyoteBoost: boolean };
-    display: { renderer: 'auto'|'canvas2d'|'webgl'|'webgpu'; subpixelMotion: boolean; crtFilter: boolean };
-  };
-  rngSeed: number;                  // 決定論用 (新規ステージ開始時に派生)
+```typescript
+// Round 6 で実装する型定義のドラフト:
+
+export type CellState = 'empty' | 'filled' | 'x';
+export type PuzzleId = string;
+
+export interface ActivePuzzleSave {
+  puzzleId: PuzzleId;
+  cells: CellState[];                    // 進行中の盤面 (W*H 要素)
+  rowMarks: boolean[][];                 // ヒント取り消し線状態 (§60)
+  colMarks: boolean[][];
+  startedAtMs: number;                   // 開始時刻 (Date.now())
+  elapsedMs: number;                     // 経過時間 (ms)、バックグラウンド中は加算しない
+  isPaused: boolean;
+}
+
+export interface PuzzleClearRecord {
+  puzzleId: PuzzleId;
+  bestTimeMs: number;
+  clearCount: number;
+  firstClearedAt: number;                // Date.now()
+  lastClearedAt: number;
+}
+
+export interface UserSettings {
+  audio: { master: number; bgm: number; se: number; muteOnBlur: boolean };
+  a11y: { reduceMotion: boolean; highContrast: boolean };
+  display: { renderer: 'auto' | 'canvas2d' | 'webgl' | 'webgpu' };
+  input: { keyBindings: Record<string, string> }; // §90.5.2
+}
+
+export interface SaveData {
+  schemaVersion: number;                 // マイグレーション用
+  activePuzzles: Record<PuzzleId, ActivePuzzleSave>; // 中断中のパズル
+  clearRecords: Record<PuzzleId, PuzzleClearRecord>;
+  settings: UserSettings;
+  installedAt: number;                   // 初回起動時刻 (Date.now())
 }
 ```
 
-- スキーマバージョンは migration 層 (§13.5) で管理。
-- 「進行中のステージ状態 (中間旗以降)」はセッション内 (`sessionStorage` 相当のメモリ) のみ。クラッシュ時に再開はしない (古典互換)。
+## 13.3 ストレージ実装 (LocalStorage)
 
-## 13.3 ストレージ実装
+```typescript
+const STORAGE_KEY = 'pixels-savedata-v1';
 
-```ts
-// IndexedDB (object store: "save", key: profileId)
-async function loadSave(profileId): Promise<SaveFile | null>;
-async function saveSave(file: SaveFile): Promise<void>;
+export class LocalStorageBackend implements SaveBackend {
+  load(): SaveData | null {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw) as SaveData;
+    } catch {
+      return null;
+    }
+  }
 
-// 抽象化
-interface SaveBackend {
-  load(): Promise<SaveFile | null>;
-  save(file: SaveFile): Promise<void>;
+  save(data: SaveData): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      // QuotaExceededError 等
+      console.warn('[save] localStorage save failed', e);
+    }
+  }
+
+  clear(): void {
+    localStorage.removeItem(STORAGE_KEY);
+  }
 }
 
-class IndexedDBBackend implements SaveBackend { /* 主 */ }
-class LocalStorageBackend implements SaveBackend { /* fallback */ }
-class CloudBackend implements SaveBackend { /* 将来 */ }
+export interface SaveBackend {
+  load(): SaveData | null;
+  save(data: SaveData): void;
+  clear(): void;
+}
+
+// 将来用 (v1.1 以降):
+// class IndexedDBBackend implements SaveBackend {} // セーブが大きくなったら
+// class CloudBackend implements SaveBackend {}     // §14.15 v1.1 計画
 ```
 
-- IndexedDB のキーは `profileId`、`version` を必ず含める。
-- 大きなオブジェクトを 1 record で保存しない (`structuredClone` がメインスレッド占有)。代わりに `progress` と `settings` を別 record に分割可能。
+## 13.4 debounce 書き込み
 
-## 13.4 トランザクション設計
+セル変更ごとに書き込むと過剰なため、**debounce 1〜2 秒** で最終状態のみ保存:
 
-- 「クリア → 新規書込」は **同一トランザクション内**で行う (途中失敗で消失防止)。
-- 書込前に schema 整合性をバリデート (Zod や手書きチェック)。
+```typescript
+import { debounce } from 'es-toolkit'; // または独自実装
 
-## 13.5 マイグレーション
+const debouncedSave = debounce((data: SaveData) => {
+  backend.save(data);
+}, 1500); // 1.5 秒
 
-```ts
-const migrations: Record<number, (file: any) => any> = {
-  1: (f) => f,
-  2: (f) => ({ ...f, settings: { ...f.settings, a11y: defaultA11y() } }),
-  // ...
+// セル変更時:
+function onCellChange(state: GameState) {
+  debouncedSave(state.toSaveData());
+}
+
+// 中断時 (visibilitychange / beforeunload) は debounce を flush して即時保存:
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    debouncedSave.flush(); // 即時実行
+  }
+});
+window.addEventListener('beforeunload', () => {
+  debouncedSave.flush();
+});
+```
+
+## 13.5 マイグレーション + Valibot 検証 (改ざん耐性) (Round 5 / Gemini Pro deep 指摘で強化)
+
+LocalStorage はユーザーが DevTools で容易に改ざん可能なため、**読み込み時に Valibot で厳密検証** + **失敗時はフェイルセーフ初期化** が必須:
+
+```typescript
+import * as v from 'valibot';
+
+// SaveData の Valibot Schema (詳細は別途定義)
+const SaveDataSchema = v.object({
+  schemaVersion: v.pipe(v.number(), v.integer(), v.minValue(1)),
+  activePuzzles: v.record(v.string(), ActivePuzzleSchema),
+  clearRecords: v.record(v.string(), PuzzleClearRecordSchema),
+  settings: UserSettingsSchema,
+  installedAt: v.pipe(v.number(), v.integer(), v.minValue(0)),
+});
+
+const migrations: Record<number, (data: any) => any> = {
+  1: (d) => d,                       // v1: 初版
+  // v2: (d) => ({ ...d, ... })      // 将来
 };
-```
 
-- ロード時に `file.version` を見て不足分のマイグレーションを順に適用。
-- 失敗した場合は壊れたセーブをバックアップして空セーブで起動 (新規プロファイル UI を表示)。
-
-## 13.6 リプレイ用シード
-
-- 各ステージの `RNG seed` をステージ開始時に save 内 `rngSeed` から派生 (`hash(profileId, stageId, attempt)`)。
-- 入力スナップショット (§90) と組み合わせれば、同一プロファイル × 同一試行回数で完全再現可能。
-- リプレイのエクスポートは MVP 範囲外。
-
-## 13.7 クラウド同期 (v1.1, Round 3 / Issue #18 で計画確定)
-
-- `CloudBackend` の最小契約: `load` / `save` / `lastModified`。
-- 単一プロファイルの "last writer wins" を既定。コンフリクト UI は将来。
-- **採用サービス (v1.1)**: Cloudflare D1 (セーブメタ + 設定) + Cloudflare R2 (リプレイ等の大物) + Firebase Auth (Sign in with Apple / Google) のハイブリッド構成 (§14.15 参照)。
-- **認証**: Firebase Auth (Spark プラン無料枠で十分)。Cloudflare Access は B2B 寄りで本作の OAuth には不向き。
-- **MVP には含めない理由**: 認証 + バックエンドの導入は仕様書/実装の複雑度を一気に押し上げる。MVP は IndexedDB + export/import (§13.9.4) + ホーム画面追加促進 UI (§13.9.3) で「ローカル運用 + 緩和策」に留める。
-- **v1.1 移行時の互換性**: `SaveBackend` インタフェースを満たす `CloudBackend` を追加するだけで、既存の `IndexedDBBackend` と並走可能。マイグレーションは「初回 Cloud ログイン時に IndexedDB を Cloud にアップロード → 以降 Cloud を主、IndexedDB をオフラインキャッシュとして併用」の流れ。
-
-## 13.8 容量
-
-- セーブ全体 ~5KB 程度を想定。IndexedDB の上限 (50MB+) には全く触れない。
-- ただし「自由保存スロット」(将来のリプレイ保存) 等を見越し、容量上限の警告 UI を実装 (`navigator.storage.estimate()`)。
-
-## 13.9 プライベートブラウジング / iOS Safari の 7 日消失リスク (Round 3 / Issue #18)
-
-- 一部ブラウザ (Safari 等) では IndexedDB が一時的領域に置かれ、タブ閉じで消える。
-- セーブ完了後に `navigator.storage.persist()` を要求し、ストレージの永続化を試みる。失敗時はユーザーに通知。
-
-### 13.9.1 iOS Safari の 7 日無アクセスでの全削除 (深刻度: 高, Round 3 / Gemini Pro deep)
-
-iOS Safari (および iPadOS) では、**ホーム画面に追加されていない通常 Safari タブ** からアクセスしている場合、
-**最後のユーザー操作から 7 日間アクセスが無いと、IndexedDB / Cache API / LocalStorage を OS が無警告で全削除** する (Apple ITP, Intelligent Tracking Prevention 由来の仕様)。
-これは本作のような長期プレイ前提のゲームにとって、**セーブデータが突然全消失する致命的リスク** となる。
-
-#### 13.9.2 緩和策 (MVP)
-
-| 対策 | 実装範囲 | 効果 |
-|---|---|---|
-| **ホーム画面追加 (PWA インストール) 促進 UI** | MVP 必須 | Add-to-Home-Screen された PWA は ITP 7 日タイマーの対象外 (Apple 公式)。最も確実な緩和策 |
-| **`navigator.storage.persist()` 要求** | MVP 必須 | "persisted storage" として宣言できれば 7 日タイマー対象外。ただし iOS Safari は通常 false を返す (PWA インストール済かつ追加条件成立時のみ true) |
-| **セーブの export / import 機能** | **MVP 必須**: テキスト形式 (Base64 圧縮 JSON) でクリップボードコピー可能にする。万一消失しても復旧可能 | 最低限の保険 |
-| **クラウドセーブ (Cloudflare D1/R2 + 認証)** | v1.1 で正式実装 (§14.15 参照) | 完全な永続化。MVP 範囲外 |
-
-#### 13.9.3 ホーム画面追加促進 UI の方針
-
-- 初回起動時 + 30 分プレイ達成時の 2 タイミングで、`beforeinstallprompt` イベントを保持して install prompt を発火 (Android Chrome / Desktop Chrome)。
-- iOS Safari は `beforeinstallprompt` をサポートしないため、「共有 → ホーム画面に追加」の手順を画像付きで案内するモーダルを表示する。
-- 「あとで」を選んだ場合は次回起動時の表示頻度を下げる (1 週間後)。
-- すでにホーム画面追加済 (PWA standalone モード) の判定: `window.matchMedia('(display-mode: standalone)').matches`。
-
-### 13.9.4 export / import 機能の最小実装
-
-UTF-8 safe な Base64 変換は **`TextEncoder` / `TextDecoder` を使う** (Round 3 / Gemini Pro 指摘)。`escape` / `unescape` は ECMAScript で deprecated 扱いのため使用禁止。
-
-```ts
-// save/export.ts
-export function exportSave(file: SaveFile): string {
-  const json = JSON.stringify(file);
-  const bytes = new TextEncoder().encode(json);                 // UTF-8 bytes
-  // btoa は ASCII しか受け付けないため bytes → binary string に変換
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
+export function loadAndMigrate(): SaveData | null {
+  const raw = backend.load();         // LocalStorageBackend.load() → SaveData | null
+  if (!raw) return null;
+  try {
+    // 1. マイグレーション
+    const startVer = raw?.schemaVersion ?? 1;
+    let data = raw;
+    for (let v = startVer; v <= CURRENT_SCHEMA_VERSION; v++) {
+      data = migrations[v]!(data);
+    }
+    data.schemaVersion = CURRENT_SCHEMA_VERSION;
+    // 2. Valibot で型 + 範囲を厳密検証
+    const parsed = v.safeParse(SaveDataSchema, data);
+    if (!parsed.success) {
+      throw new Error(`SaveData validation failed: ${JSON.stringify(parsed.issues)}`);
+    }
+    // 3. 追加: cells 配列の長さが size.w * size.h と一致するか等の cross-field 検証
+    validateCrossFields(parsed.output);
+    return parsed.output;
+  } catch (e) {
+    // フェイルセーフ: 壊れた / 改ざんされたセーブはバックアップキーに退避してから捨てる
+    console.warn('[save] corrupted or tampered savedata, resetting', e);
+    const backupKey = `pixels-savedata-backup-${Date.now()}`;
+    localStorage.setItem(backupKey, JSON.stringify(raw));
+    backend.clear();
+    return null;            // 呼び出し側は "新規セーブ" として扱う
+  }
 }
 
-export function importSave(blob: string): SaveFile {
-  const binary = atob(blob);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  const json = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-  const raw: unknown = JSON.parse(json);
-  const parsed = v.safeParse(SaveSchema, raw);                  // §13.4 / §14.2.3 と同じ Valibot 検証
-  if (!parsed.success) throw new SaveImportError(parsed.issues);
-  return parsed.output;
+function validateCrossFields(data: SaveData): void {
+  // 各 activePuzzle の cells.length === width * height、CellState は enum 内 など
+  // 不正があれば throw new Error()
 }
-
-// ui/settings/save-export.tsx の挙動
-// - "セーブをコピー" ボタン → exportSave → navigator.clipboard.writeText
-// - "セーブを読み込む" ボタン → textarea から貼り付け → importSave → 上書き確認 → save
 ```
 
-- セーブサイズ ~5KB (§13.8) なら Base64 化して 7KB 程度。クリップボード経由で共有可能。
-- iOS Safari は `navigator.clipboard.writeText` をユーザージェスチャー内同期呼び出しのみ許可するため、Audio と同じ制約 (§12.3.1)。
-- バリデーションは Valibot で行い、改ざんセーブを物理層に流さない (§14.2.3)。
-- `TextDecoder` は `{ fatal: true }` で不正バイト列を例外化 (Base64 改ざん検知の最初の防御線)。
+> **セキュリティ補足**: LocalStorage は同オリジンの JS から読み書き自由なので、改ざんは "セキュリティ脅威" ではなく "クライアント側のデータ整合性問題"。Valibot 検証で「破損データを物理層に流さない」のが目的。サーバ側で改ざん検知が必要なら v1.1 でクラウドセーブ + ハッシュ検証を実装 (§14.15.2)。
 
-## 13.10 セキュリティ/プライバシ
+## 13.6 タイマー (経過時間) の扱い
 
-- 個人情報を保存しない。
-- 本作はサーバとの通信を不要にする (PWA, 完全クライアント)。クラウド同期を入れる際にプライバシーポリシーを別途。
-- セーブデータの **HMAC 署名** はローカル単独運用では過剰。シングルプレイ前提のため改ざんは事実上ユーザーの自由。
-- ただし将来 **クラウド同期** や **リーダーボード** を実装する場合、サーバ側でスコア・コインの同期受信時に妥当性検証 (時系列・最大増分のサニティチェック) を行うこと。送信前にクライアント署名を加える方式は採らない (秘密鍵がクライアントに置けないため)。
+- パズル開始時に `startedAtMs = Date.now()` 記録
+- バックグラウンド (visibilitychange で hidden) 中は計測停止
+- `elapsedMs` を debounced save と同じタイミングで更新
 
-## 13.11 エラーハンドリング
+```typescript
+let lastTickAt: number | null = null;
+let elapsedMs = 0;
 
-| ケース | 挙動 |
+function startTimer() {
+  lastTickAt = performance.now();
+  requestAnimationFrame(tick);
+}
+
+function tick(now: number) {
+  if (lastTickAt === null) return;
+  elapsedMs += now - lastTickAt;
+  lastTickAt = now;
+  if (!document.hidden && !isPaused) {
+    requestAnimationFrame(tick);
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    lastTickAt = null; // 計測停止
+  } else if (!isPaused) {
+    startTimer(); // 再開
+  }
+});
+```
+
+## 13.7 容量
+
+- 1 パズル進行中セーブ: ~1KB (15×15 = 225 セル × 2byte JSON 表現)
+- クリア履歴: 1 パズルあたり ~100 バイト
+- 設定: ~500 バイト
+- LocalStorage の上限 (5MB) には全く触れない
+
+## 13.8 プライベートブラウジング
+
+- 一部ブラウザ (Safari 等) では LocalStorage が一時的領域に置かれ、タブ閉じで消える
+- 検出方法: `localStorage.setItem('test', '1')` がエラーを投げるかで判定
+- 失敗時は UI で「進行が消える可能性」を通知、続行は許可
+
+## 13.9 iOS Safari の 7 日無アクセス削除リスク (継続課題)
+
+旧仕様 §13.9 (Round 3) で詳述した iOS Safari の **「ホーム画面追加なし + 7 日アクセスなし」で OS が無警告全削除** リスクは LocalStorage でも適用される (むしろ IndexedDB と同等)。
+
+緩和策 (継続):
+- ホーム画面追加 (PWA インストール) 促進 UI (§13.9.3)
+- `navigator.storage.persist()` 要求
+- セーブの export / import 機能 (テキスト形式 + クリップボードコピー、§13.9.4)
+- v1.1 でクラウドセーブ (§14.15.2 Cloudflare D1 + Firebase Auth)
+
+## 13.10 旧仕様との対応
+
+| 旧 §93 (プラットフォーマー) | 新 §93 (ノノグラム) |
 |---|---|
-| `load` 失敗 (parse エラー) | 壊れたセーブを `save_backup_v<schema-version>_<timestamp>` キーに退避してから既定セーブで起動。UI で警告表示。退避領域はユーザー操作でエクスポート可能 |
-| `save` 失敗 (容量不足等) | UI で通知、リトライボタン提示、ゲームは継続 |
-| 永続化拒否 (browser policy) | UI で「進行が消える可能性」を通知、続行は許可 |
-| 同時開かれた別タブの上書き競合 | `BroadcastChannel` で「他タブで保存された」イベントを通知し、当該タブを再ロード推奨 |
+| IndexedDB + 抽象 SaveBackend | **LocalStorage** + debounce (Gemini Pro deep 指摘) |
+| Save → Profile → World[] → Stage[] | パズル単位 (PuzzleId キー) のフラット構造 |
+| 決定論シード (rngSeed) | 不要 (パズルは静的、RNG なし) |
+| ライフ / コイン / スコア / highScore | クリア時間 / クリア回数 / ベストタイム |
+| パワーアップ階層 | なし |
+
+旧 §93 のうち、IndexedDB 採用部分は **MVP では撤回**。LocalStorage で代替。v1.1 でクラウドセーブを実装する際に IndexedDB を再評価。

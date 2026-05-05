@@ -1,6 +1,7 @@
 // Step E: production build + preview server で Service Worker / Manifest / アイコンが正しく配信されるか確認。
-// Playwright で sw.js / manifest.webmanifest / icon-*.svg / favicon.svg / stages/1-1.json を取得し、
+// Playwright で sw.js / manifest.webmanifest / icon-*.svg / favicon.svg / puzzles/*.json を取得し、
 // 200 OK かつ Content-Type が想定値であることを検証する。
+// 注: Round 6 で stages → puzzles に rename。本スクリプトはその時点で puzzles/ 参照に更新する。
 
 import { chromium } from 'playwright';
 
@@ -28,6 +29,7 @@ try {
 
   // PWA リソースの個別 fetch
   const checks = await Promise.all(
+    // Round 5 段階: 旧 /stages/1-1.json はまだ残存 (Round 6 で /puzzles/*.json に置換予定)
     ['/sw.js', '/manifest.webmanifest', '/icon-192.svg', '/icon-512.svg', '/favicon.svg', '/stages/1-1.json'].map(
       async (path) => {
         const res = await page.request.get(URL.replace(/\/$/, '') + path);
@@ -59,7 +61,7 @@ try {
     }
   });
 
-  await page.screenshot({ path: '/tmp/mario-pixel-step-e.png', fullPage: false });
+  await page.screenshot({ path: '/tmp/pixels-step-e.png', fullPage: false });
 
   // production HTML に registerSW.js script タグが含まれているか
   const hasRegisterScript = await page.$eval('html', (el) =>
@@ -75,7 +77,7 @@ try {
     hasRegisterScript,
     swRegistered, // 参考情報 (preview 環境では null になり得る)
     initialNetworkPwaResources: networkLog
-      .filter((r) => /sw\.js|manifest\.webmanifest|icon-|favicon|stages\//.test(r.url))
+      .filter((r) => /sw\.js|manifest\.webmanifest|icon-|favicon|stages\/|puzzles\//.test(r.url))
       .map(({ url, status, contentType }) => ({ url, status, contentType })),
   };
   console.log(JSON.stringify(result, null, 2));

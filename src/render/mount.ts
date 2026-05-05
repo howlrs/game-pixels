@@ -58,7 +58,7 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
   try {
     stage = await loadStage('/stages/1-1.json');
   } catch (e) {
-    console.error('[mario-pixel] stage load failed', e);
+    console.error('[pixels] stage load failed', e);
     return makeFailureHandle(app);
   }
   const area = stage.areas[0]!;
@@ -87,7 +87,7 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
   // HUD にレンダラ種別 + ステージ名
   const rendererType = (app.renderer as { type: number; name?: string }).name ?? `type:${app.renderer.type}`;
   useHud.getState().setFrameSnapshot({ rendererType });
-  console.info('[mario-pixel] mountPixi (Step D)', {
+  console.info('[pixels] mountPixi (Step D)', {
     rendererType,
     stageId: stage.id,
     areaId: area.id,
@@ -137,7 +137,7 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
           // HUD にスコア加算 (見せかけ): 残りタイマー × 50 (§8.3.1 SMB1 互換)
           const t = useHud.getState().timer;
           useHud.getState().setFrameSnapshot({ score: t * 50 });
-          console.info('[mario-pixel] STAGE CLEAR!', { score: t * 50 });
+          console.info('[pixels] STAGE CLEAR!', { score: t * 50 });
         }
       }
 

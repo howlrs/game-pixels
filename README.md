@@ -1,16 +1,23 @@
-# mario-pixel (game-pixels)
+# pixels (game-pixels)
 
-マリオ系ピクセルアート 2D サイドスクロール プラットフォーマー (コード名: **マリオピクセル**) の Web アプリ。
+汎用ノノグラム (ピクチャーロジック) の Web アプリ (コード名: **ピクセルズ**)。
 
-- 仕様書: [`docs/`](docs/00_index.md) (Round 2/3 完了)
+- 仕様書: [`docs/`](docs/00_index.md) (Round 5 = ピクセルズ仕様確定)
+- 用語集: [`docs/00_glossary.md`](docs/00_glossary.md)
 - デプロイ手順: [`docs/CLOUDFLARE_DEPLOY.md`](docs/CLOUDFLARE_DEPLOY.md)
 - Live demo: (Cloudflare Pages デプロイ後に更新)
+
+## 経緯 (ジャンル転換)
+
+本リポジトリは Round 1〜4 で 2D サイドスクロール プラットフォーマー (旧コード名: マリオピクセル) として仕様策定 + 実装スケルトン + MVP α まで完成させていたが、Round 5 でジャンルを **汎用ノノグラム** に全面転換した。任天堂 IP は使用しない (詳細は [`docs/10_overview.md`](docs/10_overview.md) §1.6)。
+
+実装の置換は **Round 6** で実施 (本 Round 5 は仕様確定 + docs 全面書き直しに専念)。
 
 ## クイックスタート (ローカル開発)
 
 ```bash
 bun install
-bun run dev      # https://127.0.0.1:5173 (自己署名証明書、Gamepad API 用 secure context)
+bun run dev      # https://127.0.0.1:5173 (自己署名証明書、PWA secure context)
 bun test         # 単体テスト
 bun run build    # production build (dist/)
 bun run preview  # production build を local で配信 (https://127.0.0.1:4173)
@@ -20,13 +27,15 @@ bun run preview  # production build を local で配信 (https://127.0.0.1:4173)
 
 ## ハイライト
 
-- 物理: SMB1 互換の整数 + subpixel + 60Hz 固定タイムステップ。データレイアウトは Int32Array SoA ([`docs/20_physics.md`](docs/20_physics.md) §2.1.1)。
-- 衝突: タイルベース AABB + 軸分離 + サブステップ + ゴーストバーテックス対策。
-- 入力: Keyboard / Pointer (Touch) / Gamepad の 3 系統 + リマップ。Gamepad は接続イベント + ポーリング併用 ([`docs/90_input.md`](docs/90_input.md) §9.6.2)。
-- 描画: 内部解像度 480×270 px (16:9) を主軸、**WebGPU 既定** → WebGL2 → Canvas2D で段階縮退 ([`docs/91_rendering.md`](docs/91_rendering.md) §11.2)。
-- アーキ: **bitECS** で ECS / コア Vanilla + UI Zustand のハイブリッド状態管理 / Valibot Schema-first ([`docs/94_architecture.md`](docs/94_architecture.md) §14.2)。
-- 現代化: 物理は古典互換のまま、視覚をクラシック / モダン / HD-2D / CRT で切替可能 ([`98_pixel-modernization.md`](docs/98_pixel-modernization.md))。
-- a11y / クロスデバイス対応を一級として扱う ([`96`](docs/96_accessibility.md), [`97`](docs/97_responsive-crossdevice.md))。
+- **ジャンル**: 汎用ノノグラム (ピクチャーロジック)、5×5 / 10×10 / 15×15 の盤面 ([`docs/10_overview.md`](docs/10_overview.md))
+- **盤面モデル**: 三値セル (空 / 塗 / ×)、形状で区別 ([`docs/20_grid-model.md`](docs/20_grid-model.md))
+- **ヒント**: パズル JSON に事前計算済の行/列ヒント配列を埋め込み (run-length encoding、[`docs/30_hints.md`](docs/30_hints.md))
+- **入力**: Mouse (PC) / Keyboard / Touch (スマホ + モード切替ボタン)、Undo なし、消しゴム + 全リセットで代替 ([`docs/90_input.md`](docs/90_input.md))
+- **描画**: 内部解像度オートフィット、**WebGPU 既定** → WebGL2 → Canvas2D で段階縮退 ([`docs/91_rendering.md`](docs/91_rendering.md))
+- **アーキ**: Zustand 中心 (bitECS 不採用、Round 6 で削除) / Valibot Schema-first ([`docs/94_architecture.md`](docs/94_architecture.md))
+- **セーブ**: LocalStorage + debounce、進行盤面 + ベストタイム ([`docs/93_state-save.md`](docs/93_state-save.md))
+- a11y: DOM 部分のみ ARIA + キーボード対応、Canvas 内 a11y は v1.1 ([`docs/96_accessibility.md`](docs/96_accessibility.md))
+- クロスデバイス: スマホは ≤10×10、PC+タブレットは ≤15×15、タッチ ≥44×44px ([`docs/97_responsive-crossdevice.md`](docs/97_responsive-crossdevice.md))
 
 ## ドキュメント目次
 
@@ -38,15 +47,14 @@ bun run preview  # production build を local で配信 (https://127.0.0.1:4173)
 - レビュー結果と未決事項は [`docs/99_open-questions.md`](docs/99_open-questions.md) に集約する。
 - 章ごとに GitHub Issue を起票し、トピックブランチ → PR → main マージ → タグ付け の運用で履歴を残す。
 
-### バージョン
+### バージョン (Round 5 ジャンル転換時に旧タグを全削除)
 
 | Tag | 状態 |
 |---|---|
-| `v0.1.0-draft` | 初稿 (Gemini レビュー前) |
-| `v0.2.0-docs-round1` | Gemini Pro Round1 レビュー反映済み (Issue #1/#2/#3, PR #4/#5/#6) |
-| `v0.3.0-docs-round2` | Round 2 (T1/T5) + Round 3 反映 — WebGPU 既定 / bitECS / ハイブリッド状態管理 / Valibot / Vite 6 系 / dvh-svh 統一 / PWA 範囲縮小 / クロスデバイス罠カタログ / Cloudflare デプロイターゲット (PR #17/#19/#20) |
-| `v0.4.0-skeleton` | 実装スケルトン構築 — Vite + Pixi.js v8 + bun test + Playwright smoke で「Hello マリオピクセル」(PR #21) |
-| (タグ未付与) | Round 4 = MVP α 進行中 — Step A〜F: React 統合 + bitECS world + プレイヤー物理 + ステージロード + PWA + Cloudflare CI/CD (PR #22-#27 予定) |
+| `v0.6.0-pixels-spec` | Round 5 = ピクセルズ仕様確定 (本 Round で作成、docs 全面書き直し) |
+| (未付与) | Round 6 = 旧コード削除 + ピクセルズ MVP 実装 (予定: `v0.7.0-pixels-mvp`) |
+
+> **旧プラットフォーマー仕様のタグ** (`v0.1.0-draft` / `v0.2.0-docs-round1` / `v0.3.0-docs-round2` / `v0.4.0-skeleton` / `v0.5.0-mvp-alpha`) は Round 5 ジャンル転換時に削除済 (混乱回避)。git 履歴は残るので必要なら `git log` で参照可能。
 
 ## 依存パッケージ運用ポリシー
 
