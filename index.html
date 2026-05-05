@@ -38,21 +38,75 @@
         overscroll-behavior: none;
       }
       /* docs/97 §17.5: svh 統一 + box-sizing: border-box (Round 3 / Gemini Pro 指摘) */
-      #game-root {
+      #app-root {
         box-sizing: border-box;
         width: 100svw;
         height: 100svh;
         padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
         overflow: hidden;
+        background: #000;
+      }
+      /*
+       * Canvas コンテナ: React ツリー内で Pixi.js Canvas を保持する <div>。
+       * 内部解像度 480×270 のキャンバスを縦横比保持のまま中央に配置する。
+       */
+      .canvas-container {
+        width: 100%;
+        height: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #000;
+      }
+      .canvas-container > canvas {
+        image-rendering: pixelated;
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+      /* HUD と Tap-to-Start の最小スタイル */
+      .hud {
+        position: fixed;
+        top: var(--safe-top);
+        left: var(--safe-left);
+        right: var(--safe-right);
+        padding: 8px 12px;
+        display: flex;
+        justify-content: space-between;
+        font-family: monospace;
+        font-size: 14px;
+        color: #fff;
+        text-shadow: 1px 1px 0 #000;
+        pointer-events: none;
+      }
+      .gate {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: monospace;
+        font-size: 24px;
+        color: #fff;
+        cursor: pointer;
+        user-select: none;
+      }
+      .gate small {
+        display: block;
+        font-size: 12px;
+        opacity: 0.6;
+        margin-top: 8px;
       }
     </style>
   </head>
   <body>
-    <div id="game-root"></div>
-    <script type="module" src="/src/main.ts"></script>
+    <!--
+      §14.2.2 ハイブリッド状態管理 + Gemini #1 申し送り (実装スケルトン PR #21):
+      DOM のルートは React 1点 (#app-root) に集約し、React ツリー内で UI と Canvas
+      コンテナを分離する。Pixi.js Canvas は React ツリー内の <div ref={canvasRef}>
+      に ref 経由で append する (React は中身を触らない / 上書きしない)。
+    -->
+    <div id="app-root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
