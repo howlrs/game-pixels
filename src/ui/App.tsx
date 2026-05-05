@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { mountVisibilityHandler } from '@platform/visibility.ts';
+import { isStandalone, mountInstallPromptCapture } from '@platform/install.ts';
 import type { GameHandle } from '@render/mount.ts';
 import { GameView } from './GameView.tsx';
 import { Hud } from './Hud.tsx';
@@ -17,6 +18,16 @@ export function App() {
   useEffect(() => {
     // §92.3.2: visibilitychange を登録し、unmount 時に必ず解除 (Step A / Gemini Pro 指摘でリーク対策)。
     return mountVisibilityHandler();
+  }, []);
+
+  useEffect(() => {
+    // §13.9.3 / §14.10.1: beforeinstallprompt を捕捉 (Chrome 系のみ)。
+    // 実際の促進モーダル UI は Round 5 以降で実装。
+    const detach = mountInstallPromptCapture();
+    if (isStandalone()) {
+      console.info('[install] running in PWA standalone mode');
+    }
+    return detach;
   }, []);
 
   const handleStart = useCallback(() => {
