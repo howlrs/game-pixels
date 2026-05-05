@@ -187,7 +187,7 @@ platform は全モジュールから利用される (環境検出のみ)
 - **dev サーバ**: `https://localhost` (Gamepad API は secure context 必須, §9.6.3)。Vite 公式の **`@vitejs/plugin-basic-ssl`** で自己署名証明書を自動生成する (素のまま自己署名するとブラウザの `NET::ERR_CERT_AUTHORITY_INVALID` を毎起動踏むため、本プラグインで初回信頼許可後はキャッシュされる)。
 - HTTP/2 + Brotli/GZIP で初回 < 500KB を目標。
 
-## 14.10 PWA (Round 2 / Issue #11 で範囲縮小)
+## 14.10 PWA (Round 2 / Issue #11 で範囲縮小, Round 3 / Issue #18 で iOS 制約を明記)
 
 **MVP スコープ**: オフラインキャッシュ + フルスクリーン起動の 2 機能のみ。Push / Sync / Background Fetch は **不採用**。
 
@@ -197,6 +197,22 @@ platform は全モジュールから利用される (環境検出のみ)
 - 通知を表示してユーザーがリロードを選択するまで旧版を維持 (UX 安定優先)。
 - **不採用機能**: Push API (ゲーム体験を阻害する通知ノイズ)、Background Sync (サーバ依存のオンライン専用ゲーム前提でないため不要)、Web Share Target / Periodic Sync (MVP 範囲外)。
 - フルスクリーン起動は Web App Manifest の `display: 'standalone'` + `display_override: ['fullscreen', 'standalone']` で対応。
+
+### 14.10.1 iOS Safari の PWA 制約 (Round 3 / Issue #18)
+
+iOS Safari は他ブラウザと比べて PWA 関連 API のサポートが限定的で、本作にも以下の影響がある:
+
+| 機能 | iOS Safari の挙動 | 本作の対応 |
+|---|---|---|
+| `display_override: ['fullscreen']` | 実質 `standalone` 扱いとなり、上部ステータスバーを完全に隠せないケースがある | フルスクリーン化に依存しないレイアウト (§17.5 の `100svh` 採用)。HUD はステータスバー領域を避けて配置 (§17.5 の safe-area-inset 適用) |
+| Push API | 完全非対応 (iOS 16+ で PWA 経由のみ部分対応、本作では不採用 §14.10) | 不採用方針と整合。ゲームに通知は使わない |
+| `beforeinstallprompt` イベント | 非対応 (Add-to-Home-Screen は手動操作必須) | iOS では「共有 → ホーム画面に追加」の手順を画像付きで案内するモーダルを §13.9.3 で表示 |
+| Background Sync / Periodic Sync | 完全非対応 | 不採用方針と整合 |
+| IndexedDB / Cache API の永続性 | 7 日無アクセスで全削除 (§13.9.1) | Add-to-Home-Screen された PWA は対象外。ホーム画面追加促進が必須 |
+| `navigator.storage.persist()` | 通常は false を返す (PWA インストール済かつ追加条件成立時のみ true) | best-effort で呼ぶが期待しない (§13.9.2) |
+| ServiceWorker のストレージクオータ | 他ブラウザより厳しい (1GB 程度) | アセット合計 < 50MB を目標 (本作は十分収まる) |
+
+**運用方針**: iOS Safari の制約は緩和不可能なものが多いため、「制約を前提にしたデザイン」と「ホーム画面追加で緩和される旨をユーザーに案内」の 2 軸で対応する。PWA 機能の追加採用 (Push 等) を将来検討する際も、iOS の対応状況を最優先で確認する。
 
 ## 14.11 開発支援
 
@@ -348,4 +364,72 @@ bun install
 - §92 オーディオ: `howler@2.2.4`
 - §20 物理: Custom AABB (整数 + subpixel)、汎用物理エンジンは不採用 (§2.1.2)
 
-将来 Round 3 (Issue #18) で追加されるサーバ側スタック (Cloudflare Pages / Workers / D1 / R2 / Firebase Auth など) は §14.15 (新章, Round 3 で追加予定) で別途固定する。
+将来 Round 3 (Issue #18) で追加されるサーバ側スタック (Cloudflare Pages / Workers / D1 / R2 / Firebase Auth など) は §14.15 で別途固定する。
+
+## 14.15 デプロイターゲット (Round 3 / Issue #18)
+
+### 14.15.1 確定方針: MVP は Cloudflare 単独で完結
+
+本作の MVP (PWA + シングルプレイヤー + ローカルセーブ) は **Cloudflare Pages 単独で完結** する。サーバ機能は不要、すべて静的アセット配信で済む。コストは Free プラン枠内 ($0/月)。
+
+| 本作の要件 | Cloudflare サービス | 適合度 | 備考 |
+| :--- | :--- | :--- | :--- |
+| 静的 SPA (Vite 6 ビルド `dist/`) | **Pages** | ◎ | Free 20,000 ファイル / Paid 100,000、単一 25 MiB。Brotli・GZIP 自動。HTTP/2 自動 |
+| Service Worker / オフラインキャッシュ | Pages (`vite-plugin-pwa` で生成、`_headers` で Cache-Control 制御) | ◎ | Service Worker 自体は静的アセットとして配信 |
+| ステージ JSON / スプライトアトラス | Pages 同梱 (将来差し替え頻発時のみ R2 検討) | ◎ | バンドル同梱で十分 |
+| カスタムドメイン (`game-pixels.dev` 等) | Pages | ◎ | Free 100 個 |
+| プレビュー環境 (PR ごと) | Pages preview | ◎ | 無制限、`X-Robots-Tag: noindex` 自動 |
+| WebGPU 用 COOP/COEP ヘッダ | Pages `_headers` | ◎ | `Cross-Origin-Opener-Policy: same-origin` / `Cross-Origin-Embedder-Policy: require-corp` を宣言可能 |
+
+### 14.15.2 v1.1 拡張: クラウドセーブ + 認証 + リプレイランキング
+
+v1.1 で iOS Safari の IndexedDB 7 日消失リスク (§13.9.1) への完全対策と、リプレイ共有 / リーダーボードを実装する場合の構成:
+
+| 機能 | 採用サービス | 備考 |
+|---|---|---|
+| **クラウドセーブ** | **Cloudflare D1** (SQLite) | Free 500MB / Paid 10GB。1ユーザー数 KB のセーブで十分。書込 Free 100k/日 / Paid 100M/日 |
+| **認証 (Sign in with Apple/Google)** | **Firebase Auth** (GCP) | Cloudflare Access は B2B 寄り。Firebase Auth Spark プランは無料枠が手厚く、本作の OAuth に直結 |
+| **リプレイ保存** | **R2** (リプレイ JSON) + **D1** (メタ) | R2 は Cloudflare 内部 egress 無料 ($0/GB)、外向きも無料 |
+| **マルチプレイ拡張 (将来)** | **Workers + Durable Objects + WebSocket** | DO で部屋単位の状態管理、無制限 wall clock |
+| **テレメトリ (FPS / クラッシュ)** | **Workers Analytics Engine** | Workers Paid プラン ($5/月) に含まれる |
+
+### 14.15.3 GCP 補完判断基準
+
+| シナリオ | Cloudflare で足りるか | GCP 補完候補 |
+|---|---|---|
+| MVP (PWA, ローカルセーブのみ) | ✅ 完結 | 不要 |
+| 認証 (Sign in with Apple/Google) | △ Cloudflare Access は B2B 寄り | **Firebase Auth** (無料枠が手厚い、SDK が枯れている) |
+| 大容量アセット (BGM 100MB+) | △ R2 オブジェクトサイズ要確認 | GCS (4.7TB/object 上限)。ただし R2 でも実質問題なし |
+| クラウドセーブ 10GB 超 (DB1 単体上限) | × Paid でも 10GB | Cloud SQL (PostgreSQL/MySQL) または Firestore |
+| 30 秒超のサーバ処理 (動画変換等) | × Workers は Free 10ms / Paid CPU 5min | Cloud Run (60 分 wall-clock 上限) |
+| 重い画像 / 動画処理 | × | Cloud Run + GCS |
+
+> **判断ルール**: 「まず Cloudflare で実装可否を検討 → 制約に当たったときだけ GCP で補完」を原則とする。両方を初期から並走させない (運用複雑度が倍増する)。
+
+### 14.15.4 概算コスト
+
+| 段階 | 構成 | 月額 |
+|---|---|---|
+| **MVP** | Cloudflare Pages のみ | **$0** (Free) |
+| **v1.1 (中規模)** | Pages + Workers Paid + D1 + R2 + Firebase Auth Spark | **$5–15** (1 万 DAU 想定) |
+| **v1.1 (大規模 10 万 DAU)** | 同上 + KV / Analytics Engine 増分 | $30–80 |
+
+### 14.15.5 デプロイフロー
+
+```
+GitHub (main push) → Pages 連携 → Vite 6 ビルド (bun install → bun run build) → Pages 配信
+                  → Pages preview (PR ごと、自動)
+```
+
+- Pages の "Connect to Git" で GitHub リポジトリと紐付け、`main` push 時に自動デプロイ。
+- ビルドコマンド: `bun install --frozen-lockfile && bun run build`
+- 出力ディレクトリ: `dist/`
+- 環境変数: `NODE_VERSION` は不要 (Bun ネイティブビルド)、`BUN_VERSION` を設定 (= 1.2.0、§14.14.1 に合わせる)
+- **`_headers` ファイル**: `dist/` のルートに配置し、`/index.html` は `Cache-Control: no-cache`、`/assets/*` は `Cache-Control: public, max-age=31536000, immutable` (Vite が hashed filename を出力するため immutable で安全)
+- WebGPU の COOP/COEP は `_headers` で全パスに適用 (将来 Web Worker / SharedArrayBuffer を使う場合の準備)
+
+### 14.15.6 リスクと未解決事項
+
+- **iOS Safari の WebGPU 不安定性** (§11.2.3) → MVP リリース時はスマホ向けに自動で WebGL2 fallback を強く推奨する設定にする選択肢あり。実装フェーズで実機検証 (Issue #14 T7) で判断。
+- **Pages の URL リライト**: SPA (履歴 API ベース) のためすべてを `/index.html` にフォールバックさせる必要があれば `_redirects` ファイル (`/* /index.html 200`) を配置。MVP のシングルページゲームでは履歴 API を使わない可能性が高く、不要かもしれない。実装時に判断。
+- **Renovate 設定 (§14.14.4)** は Cloudflare Pages の自動ビルドと CI 必須化と整合させる必要がある。Renovate PR が来た時に Pages の preview build が CI 一部として走り、E2E (Playwright) と並行して通すフロー。詳細は Issue #14 (T7) で具体化。

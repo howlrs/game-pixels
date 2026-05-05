@@ -26,6 +26,39 @@
 - **HDR / 高精度カラー**: WebGPU 採用により Pixi.js v8 の `RenderTarget` で 16bit float カラーを扱える。Bloom / 高精細 CRT シェーダの表現幅が広がる (§11.10 / §18.5)。
 - **CI E2E**: WebGPU 既定 + WebGL2 フォールバック + Canvas2D 降格の 3 系統を Playwright (§14.8) で必ず実機ブラウザ (Chrome / Firefox / Safari TP) でスクリーンショット差分テストする (Round 2 リスク事項, Issue #11)。
 - **未解決リスク (CI 上の WebGPU 実行)**: GitHub Actions の `ubuntu-latest` 等の標準ヘッドレス環境では WebGPU はそのまま動作せず、SwiftShader / Dawn / `--enable-unsafe-webgpu` フラグなどの追加設定が必須となる (Round 2 / Gemini Pro 指摘)。本作の CI で WebGPU 経路を実行可能にする手段は Issue #14 (T7 テスト戦略) で具体化する。それまでの間、CI では WebGL2 経路と Canvas2D 経路のみを必須通過対象とし、WebGPU 経路はローカル / プレビュー環境での手動確認に依存する。
+
+### 11.2.3 モバイル WebGPU 特有の罠 (Round 3 / Issue #18)
+
+PC ブラウザでは概ね安定する WebGPU も、スマホブラウザでは以下の固有問題が発生する (Round 3 / Gemini Pro deep, §17.14 A)。
+
+| 環境 | 罠 | 対策 |
+|---|---|---|
+| **iOS Safari (iOS 26+)** | WebGPU の利用可能 GPU メモリが iPad/iPhone で厳しく制限されている。`OffscreenCanvas` や RenderTarget を多重に取ると `OutOfMemoryError` で初期化失敗 | RenderTarget は最大 2 枚 (主 + bloom) に制限、不要時は即 `destroy()`。`adapter.limits` を起動時に取得し、`maxBufferSize` / `maxTextureDimension2D` をログに残す |
+| **iOS Safari (任意機種)** | バックグラウンド復帰時に WebGPU コンテキストが失われる (`webgpucontextlost` イベント発火、または静かに無効化) | `device.lost` Promise を必ず購読し、復帰時はアセット再アップロード + パイプライン再構築 (`onWebGpuLost()` ハンドラを `render/lifecycle.ts` に集約)。**ハンドラ未実装で実機リリースしてはならない** |
+| **Android Chrome (Adreno GPU 一部世代)** | 特定の WGSL シェーダ (特に `discard` を含む fragment shader) でドライバが GPU プロセスごとクラッシュ | 本作のシェーダは MVP では既定で **`discard` を使わない** こと。CRT / Bloom 等の演出用シェーダで使う場合はデバイス検出 (`navigator.userAgent` の `Adreno` 混入確認) で WebGL2 経路へフォールバック |
+| **Android Chrome (Mali GPU 一部世代)** | 16bit float RenderTarget で精度不足によるバンディング | 16bit float が必要な経路 (HD-2D Bloom) は Mali では 8bit に降格、または演出 OFF |
+| **WebGL2 fallback 時の iOS Safari** | `highp` (高精度浮動小数点) のサポートが不完全。`mediump` 扱いになりシェーダの見た目が変わる | シェーダで `precision highp float;` を宣言しても iOS では実質 `mediump` のことがある。本作の演出シェーダは **`mediump` で破綻しないように実装** (大きな数値を扱わない、座標は normalized [0,1] で渡す) |
+
+#### スマホ判定での自動プロファイル
+
+```ts
+// render/profile.ts
+function detectMobile(): 'ios-safari' | 'android-chrome' | 'desktop' {
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/.test(ua)) return 'ios-safari';
+  if (/Android/.test(ua)) return 'android-chrome';
+  return 'desktop';
+}
+
+export function defaultRenderProfile() {
+  const m = detectMobile();
+  if (m === 'desktop') return { crt: false, bloom: false, hd2d: false };  // ユーザー任意で ON
+  // モバイルは初期 OFF。発熱と GPU 不安定を避ける (§95 / §11.2.3)
+  return { crt: false, bloom: false, hd2d: false, lockToCanvas2DIfWebGPULostTwice: true };
+}
+```
+
+- WebGPU コンテキストロストが 1 セッション中に **2 回連続** 発生したら、設定を `display.renderer = 'canvas2d'` に強制降格してリロードを促す (発生頻度の閾値は §95 性能調整と整合させる)。
 - **シェーダ言語**: WebGPU は WGSL、WebGL2 は GLSL ES 3.00。Pixi.js v8 が両方を内部で吸収するため、本作のアプリ側コードはシェーダ言語を意識しない。独自シェーダを書く局面 (CRT, Bloom) のみ WGSL を主、GLSL を副とし、両言語版を `render/shaders/` に並置する。
 
 ### 11.2.2 Canvas2D フォールバック時の制約
@@ -72,6 +105,30 @@ WebGPU/WebGL2 のいずれも不可の場合、以下の機能を自動的に無
 4. nearest-neighbor 描画モードでは scale が整数で、丸め後は必ずデバイスピクセル境界に落ちる。線形補間モードでは丸めを行わない。
 
 カメラとエンティティで丸め方が違うとシマーリングが発生する。順序と丸め関数を 1 ファイル (`render/coords.ts`) に集約する。
+
+#### 11.5.2 高 DPR (DPR = 3) でのシマリング (Round 3 / Issue #18, 深刻度: 中)
+
+iPhone (DPR=3 が一般的) では `imageSmoothingEnabled = false` / WebGPU の nearest sampling を指定しても、**Pixi.js / WebGPU に渡す座標が小数点を持つと、エッジが補間されて滲む** (Round 3 / Gemini Pro deep, §17.14 I)。
+
+##### 必須対応 (Pixel Perfect Rendering)
+
+```ts
+// render/coords.ts (集約箇所)
+export function snapToPixel(worldSubpixel: number, cameraSubpixel: number, scale: number): number {
+  // worldSubpixel - cameraSubpixel を subpixel 単位で計算 → px に変換 → 整数化
+  const px = (worldSubpixel - cameraSubpixel) >> 4;   // Int32Array 由来なので確実に整数
+  return (px * scale) | 0;                            // Pixi.js 渡し前の最終整数化
+}
+
+// 描画呼び出し側
+sprite.x = snapToPixel(actor.x_sub, camera.x_sub, scale);
+sprite.y = snapToPixel(actor.y_sub, camera.y_sub, scale);
+```
+
+- **`Math.floor()` / `(x | 0)` を Pixi.js (またはレンダラ) に座標を渡す直前で必ず通す**。Int32Array SoA の物理側 (§20.1.1) は決定論のため `>> 4` で px を整数化しているが、レンダラに渡す前の `* scale` で再び小数化するケースがあるため、**最終呼び出しで `| 0`** が必須。
+- 集約箇所: `render/coords.ts` の 1 ファイル。各 entity が独自の丸めを実装するのは禁止 (§11.5.1 と同じ規律)。
+- nearest sampling 自体は Pixi.js v8 の `BaseTexture.style.scaleMode = 'nearest'` で設定済 (Round 2 で確定)。
+- 「モダン」モード (subpixel motion 有効) では `snapToPixel` ではなく `subPixelOffsetForRenderer` という別関数を用意し、scale が整数 (= nearest mode 有効時) のみ `| 0` を通す。線形補間モードでは小数を保持。
 
 ## 11.6 60→120Hz の補間描画
 

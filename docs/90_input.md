@@ -65,10 +65,28 @@ interface InputSnapshot {
 - 仮想スティックは radius 64 px を中心からの最大移動距離として、X/Y を `-1..+1` に正規化。
 - スティックのデッドゾーン: 0.25 (中心の手のずれを許容)。
 
-### 9.5.4 ハプティック
+### 9.5.4 ハプティック (Round 3 / Issue #18 で iOS 完全無視を強調)
 
 - 着地、ダメージ、コイン取得時に `navigator.vibrate(10)` を呼ぶ (a11y で off 可能)。
-- iOS は vibrate 非対応のため、`AudioContext` 経由の触覚は採用せず、視覚 + 音で代替。
+- **iOS Safari は `navigator.vibrate` を完全に無視する** (Round 3 / Gemini Pro deep)。ガード句で OS 判定するのではなく、副作用なしの no-op として呼び切れば良いが、**振動に依存したゲームデザイン (例: 振動でダメージを伝える) は禁止**する。
+- 触覚の代替として、**画面シェイク (camera shake) + フラッシュ (画面端の赤フェード) + SE** を主軸に据える。これは Android / iOS / PC のどこでも一様に動作する。
+- ゲームパッド経由の振動 (`Gamepad.vibrationActuator`) は §9.6.2 / §9.6.3 で別途扱う。Bluetooth コントローラ経由なら iOS でも動く可能性があるが (機種依存)、Web 側からは制御保証外。
+
+### 9.5.5 iOS Safari の touch-action 限界とエッジスワイプ (Round 3 / Issue #18, 深刻度: 高)
+
+CSS `touch-action: none` は通常のブラウザでスクロール・ピンチ・ダブルタップズームを止められるが、**iOS Safari の画面端 (左端) からの「戻る」エッジスワイプは CSS だけでは完全に止まらない** (Round 3 / Gemini Pro deep)。同様に画面右端からの「進む」エッジスワイプも防げない。
+
+#### 対策
+
+| 対策 | 実装 |
+|---|---|
+| **仮想ジョイパッドを画面の極端な端に置かない** | 左パッド左端 = `max(env(safe-area-inset-left, 0), 16px)` 以上のオフセット、右ボタン右端 = 同様に `max(env(safe-area-inset-right, 0), 16px)` 以上。エッジスワイプ発火域 (推定 16px) と重ねない |
+| **`touchstart` の preventDefault を `{ passive: false }` で確実に発火** | §9.5.2 既出 |
+| **長押しコンテキストメニュー / テキスト選択を抑止** | CSS: `-webkit-touch-callout: none; user-select: none; -webkit-user-select: none` を `<canvas>` と仮想パッドに適用 |
+| **ダブルタップズームを抑止** | viewport meta: `<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">` |
+| **PWA standalone モード** | ホーム画面追加 + standalone 起動時はエッジスワイプ自体が無効化される (§13.9.3 / §14.10) |
+
+これらを **CSS / HTML / JS の 3 層で多重防御**する。1 層だけでは iOS Safari の挙動を完全には抑えられない。
 
 ## 9.6 Gamepad
 
@@ -106,6 +124,9 @@ Gamepad API は **接続イベント (gamepadconnected/disconnected) はある�
 | DualSense のアダプティブトリガは Web からは不可 | 振動のみ `dual-rumble` で代替 |
 | Bluetooth 経由の Xbox コントローラは `pressed` の reporting rate が不安定 | 5 frame 連続未押下を確認してから `released` 確定 (チャタリング防止) |
 | Gamepad API は **secure context (https/localhost)** でしか動かない | dev サーバを `https://localhost` で起動 (§14.9) |
+| **iOS Safari の Gamepad API は Bluetooth コントローラのボタンマッピングが崩れやすい** (Round 3 / Issue #18) | `mapping !== 'standard'` を検出したら**初回接続時に強制でリマップ画面へ誘導** (§9.7)。`id` 文字列に "DualSense" / "Xbox" 等を含むコントローラでも iOS では別マッピングになるケースを想定 |
+| **iOS Safari の `vibrationActuator` はサポート不安定または動作しない** (Round 3 / Issue #18) | optional chaining (`?.`) で安全に no-op 化。**振動依存のゲームデザインは禁止** — ダメージ時は画面シェイク + フラッシュ + SE で代替 (§9.5.4) |
+| Android Chrome の `vibrationActuator` は機種依存 (Pixel は動く / 一部 OEM は no-op) | 同上、optional chaining。実機テストで挙動確認 |
 
 ### 9.6.4 入力デバイス自動切替 (Last Input Wins)
 

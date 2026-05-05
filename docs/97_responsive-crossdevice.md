@@ -30,19 +30,20 @@ const orientation = matchMedia('(orientation: portrait)').matches ? 'portrait' :
 - 横持ちはゲームプレイ中心、縦持ちは UI 領域 + 仮想ジョイパッドを上下に配置する。
 - 縦持ちでは仮想ジョイパッドを画面下半分に集中、ゲーム画面は上半分。
 
-## 17.5 セーフエリア / 動的ビューポート (dvh/svh) 必須 (Round 2 / Issue #11)
+## 17.5 セーフエリア / 動的ビューポート (dvh/svh) 必須 (Round 2 / Issue #11, Round 3 / Issue #18 で svh 統一に修正)
 
 - iOS のホームバー、Android のジェスチャ領域を考慮し、`env(safe-area-inset-*)` を CSS で適用。
 - 仮想ボタンはセーフエリアの内側に配置。
-- **モバイル向けの viewport 単位は `dvh` / `svh` を必須採用**し、`vh` は使用禁止 (Round 2 / E4 専門家見解)。
+- **モバイル向けの viewport 単位は `svh` を主軸として採用**し、`vh` は使用禁止 (Round 2 / E4 専門家見解 + Round 3 / Gemini Pro deep)。
   - `100vh`: アドレスバーの伸縮に追従しない (旧仕様 / レガシー)。表示が突然 100vh 分だけ "ジャンプ" し、仮想ジョイパッドがアドレスバー裏に隠れる事故が発生する。
-  - **`100dvh` (dynamic viewport height)**: ブラウザ UI (アドレスバー / ツールバー) の表示状態に追従して動的に変化。ゲーム本体のラッパー要素 (`<div id="game-root">`) には `height: 100dvh` を当てる。
-  - **`100svh` (small viewport height)**: ブラウザ UI が常に表示された状態 (= 最も小さい高さ) を基準。仮想ジョイパッドのレイアウト基準として使用 (UI が引っ込んでもボタン位置は動かない)。
-  - **`100lvh` (large viewport height)**: 使用しない (UI が消えた最大高を返すため、コンテンツが UI 裏に隠れるリスク)。
+  - **`100svh` (small viewport height) — 既定**: ブラウザ UI が常に表示された状態 (= 最も小さい高さ) を基準。**ゲームキャンバス本体・仮想ジョイパッドの双方に `100svh` を適用**し、アドレスバー伸縮中のレイアウトガタつきを構造的に排除する (Round 3 修正、§17.14 D の罠回避)。表示領域は最大化せず最小高で固定する代わりに、**プレイ中の意図しないレイアウト変動が一切起きない**ことをゲームエンジンの安定性として優先する。
+  - `100dvh` (dynamic viewport height): ブラウザ UI の表示状態に追従して動的変化するが、iOS Safari ではスクロール中に値がリアルタイムに揺れて画面全体がガタつく (Round 3 で確認、§17.14 D)。本作のゲームキャンバスでは **使用しない**。設定画面など「変動しても問題ない静的領域」のみ任意で `dvh` を使う余地はある。
+  - `100lvh` (large viewport height): 使用しない (UI が消えた最大高を返すため、コンテンツが UI 裏に隠れるリスク)。
+  - **PWA standalone 起動時** はアドレスバーが存在せず `svh = lvh = vh` となるため、`100svh` のままで余白なく全画面化される。
 - 古環境フォールバック用に JS で `visualViewport.height` を購読し、`--app-height` CSS 変数に書き込む実装は MVP では不採用 (`dvh` / `svh` の Baseline Widely Available 化を前提)。万一サポート対象に古環境が入る場合のみ §17.11 のデバイス特有対応として再検討する。
 
 ```css
-/* ui/global.css (抜粋) */
+/* ui/global.css (抜粋) — Round 3 で svh 統一 */
 :root {
   --safe-top:    env(safe-area-inset-top, 0px);
   --safe-right:  env(safe-area-inset-right, 0px);
@@ -51,17 +52,26 @@ const orientation = matchMedia('(orientation: portrait)').matches ? 'portrait' :
 }
 
 #game-root {
-  width: 100dvw;
-  height: 100dvh;        /* アドレスバー伸縮に追従 */
+  /*
+   * box-sizing: border-box は必須 (Round 3 / Gemini Pro 指摘)。
+   * デフォルトの content-box のままだと padding (safe-area-inset) 分が加算されて
+   * 100svh を超過し、意図せぬスクロールが発生する。
+   */
+  box-sizing: border-box;
+  width: 100svw;
+  height: 100svh;        /* svh で固定 — アドレスバー伸縮中のガタつきを排除 */
   padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  overflow: hidden;       /* 念のため */
 }
 
 .virtual-pad {
   position: fixed;
   bottom: max(16px, var(--safe-bottom));
-  height: calc(100svh / 3);    /* UI が引っ込んでもパッド位置を固定 */
+  height: calc(100svh / 3);    /* ゲーム本体と同じ基準で固定 */
 }
 ```
+
+> **Round 2 → Round 3 の方針変更**: T1 PR (#17) では「ゲーム本体 = `dvh` / 仮想パッド = `svh`」としていたが、Round 3 で iOS Safari のアドレスバー伸縮中の `dvh` リアルタイム変動が確認されたため、「ゲーム本体も `svh`」に統一した。表示領域の最大化よりレイアウト安定性を優先する。
 
 ## 17.6 入力レイアウト
 
@@ -115,4 +125,38 @@ const orientation = matchMedia('(orientation: portrait)').matches ? 'portrait' :
 ## 17.13 性能ばらつきへの対応
 
 - 起動時に簡易 FPS ベンチ (1 秒、固定アニメ) を走らせ、低スコアなら `display.renderer = 'canvas2d'` に固定。
-- ユーザー側で手動切替可能 (§93 の `display.renderer`)。
+- **プレイ中は §15.5.1 の「動的性能調整 (4 段階)」が常時動作**し、サーマルスロットリング検知で自動降格・回復する。
+- ユーザー側で手動切替可能 (§93 の `display.renderer` および性能調整自動/オフ/強制ステージ)。
+
+## 17.14 クロスデバイス挙動差カタログ (Round 3 / Issue #18)
+
+PC ブラウザ (Chrome / Firefox / Safari) と スマホブラウザ (iOS Safari / Android Chrome) の差異を、**深刻度順に単一表で**まとめる。各観点の詳細は対応する章で扱う。本表は実装フェーズで「実機テストの優先順位」と「事前回避済 vs 要対応」の判断材料として使う。
+
+### 17.14.1 総括表 (Gemini Pro deep / 2026-05-05 由来)
+
+| # | 観点 | 深刻度 | スマホ特有の罠 | 主対応 | 詳細 |
+|---|---|---|---|---|---|
+| **C** | Touch / Pointer | **高** | iOS Safari の `touch-action: none` でもエッジスワイプを完全に止められない。`navigator.vibrate` は iOS で完全無視。長押し / マルチタッチで意図せずコンテキストメニュー発動 | 仮想パッドを画面の極端な端に置かない (16px+ オフセット)、CSS / HTML / JS の 3 層多重防御 | §9.5.4 / §9.5.5 |
+| **F** | Audio (Howler / Web Audio) | **高** | iOS Safari の自動再生制限が厳格、ユーザージェスチャー内で `await` を挟まず同期 `resume()` しないと無音。バックグラウンド復帰で音ズレ / 停止 | 「Tap to Start」画面で同期 unlock、`visibilitychange` で auto-pause + "TAP TO RESUME" | §12.3.1 / §12.3.2 |
+| **H** | 物理 (rAF 120Hz) | **高** | ProMotion 端末 (iPhone 15 Pro / Pixel 7 Pro) で rAF が 120 Hz 発火 → rAF ごとに物理更新するとスマホで 2 倍速 | rAF と物理を完全分離、`performance.now()` デルタ蓄積で 1/60s 固定 | **§14.3 で事前回避済** ✅ |
+| **E** | PWA / IndexedDB 7 日消失 | **高** | iOS Safari の IndexedDB / Cache は「ホーム画面追加なし + 7 日アクセスなし」で OS が無警告全削除。`display_override: ['fullscreen']` も実質 standalone 扱い | ローカルセーブは消える前提、ホーム画面追加促進 UI、export / import 機能、v1.1 でクラウドセーブ | §13.9.1 / §13.9.2 / §13.9.3 / §13.9.4 / §14.10.1 / §14.15.2 |
+| **A** | WebGPU | 中 | iOS Safari はメモリ制限が厳しくバックグラウンド復帰でコンテキストロスト。Android は Adreno / Mali の特定シェーダクラッシュ。WebGL2 fallback 時 iOS は `highp` サポート不完全 | スマホ判定で初期から CRT / Bloom 無効化プロファイル、`device.lost` Promise 必須購読、WebGPU 連続ロスト 2 回で Canvas2D 強制降格 | §11.2.3 |
+| **B** | Gamepad | 中 | iOS Safari の Gamepad API は Bluetooth マッピングが崩れやすい。`vibrationActuator` はサポート不安定 | `mapping !== 'standard'` 検出で強制リマップ画面誘導、振動依存禁止 (画面シェイク + フラッシュで代替) | §9.5.4 / §9.6.3 |
+| **G** | サーマルスロットリング | 中 | スマホで高負荷描画を数分続けると発熱で 60→20 fps。フィルレート / ドローコールがボトルネック | 動的性能調整 4 段階 (パーティクル削減 → 内部解像度縮小 → シェーダ OFF → フレームスキップ) | §15.5.1 |
+| **I** | 高 DPR シマリング | 中 | iPhone DPR=3 で `imageSmoothingEnabled = false` でも座標が小数点だと滲む | Pixi.js に座標を渡す直前に必ず `Math.floor()` / `\| 0` で整数化、`render/coords.ts` に集約 | §11.5.1 / §11.5.2 |
+| **D** | dvh / svh | 低 | iOS Safari でアドレスバー伸縮中に `dvh` がリアルタイム変動 → レイアウトガタつき | ゲームキャンバス本体・仮想パッドの双方を `100svh` に統一固定 (T1 PR の `dvh` 既定を Round 3 で破棄) | §17.5 |
+
+### 17.14.2 実機テスト優先順位 (実装フェーズ)
+
+実装着手後、以下の順で実機テストする。**深刻度「高」の 4 件は実機 (iPhone + Android Pixel) で必ず動作確認**してから MVP リリース判定。
+
+1. **C, F, E** (実機タッチ / 音 / セーブ消失検証) — iPhone Safari + Android Chrome の両方で必須
+2. **H** (rAF 120Hz) — ProMotion 端末 (iPhone 15 Pro 以降) で物理が 60Hz 維持されているか実測
+3. **A, B** (WebGPU + Gamepad) — iPhone Safari でコンテキストロスト + Bluetooth コントローラ接続テスト
+4. **G** (サーマル) — 30 分連続プレイで FPS 推移を実測、自動性能調整が発動するか確認
+5. **I** (シマリング) — 高 DPR スクリーンショット差分テスト
+6. **D** (svh 統一) — iOS Safari のアドレスバー伸縮中にレイアウトが動かないか目視
+
+### 17.14.3 docs 内の参照規約
+
+各章で「クロスデバイス特有の罠」に言及する場合、必ず本 §17.14 の番号 (A〜I) を併記する (例: "iOS Safari の WebGPU 制約 (§11.2.3, §17.14 A)")。これにより罠カタログとの双方向リンクを維持し、影響範囲の追跡を容易にする。
