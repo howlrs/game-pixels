@@ -11,3 +11,5 @@ export {
 } from './install.ts';
 export { updateReduceMotion, isReduceMotionApplied } from './reduce-motion.ts';
 export { updateHighContrast, isHighContrastApplied } from './high-contrast.ts';
+export { parsePath, getInitialPath, targetToPath, navigate } from './router.ts';
+export type { RoutedTarget } from './router.ts';

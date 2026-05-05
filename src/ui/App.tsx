@@ -18,9 +18,16 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { mountVisibilityHandler } from '@platform/visibility.ts';
 import { isStandalone, mountInstallPromptCapture } from '@platform/install.ts';
-import { updateHighContrast, updateReduceMotion } from '@platform/index.ts';
+import {
+  getInitialPath,
+  navigate,
+  parsePath,
+  updateHighContrast,
+  updateReduceMotion,
+} from '@platform/index.ts';
 import { mountAutoSave, recordClear, getSavedData } from '@save/index.ts';
 import { mountAudio, setBgmMaster, setVolume, useAudio } from '@audio/index.ts';
+import { loadPuzzle as loadPuzzleData } from '@core/index.ts';
 import { useGame } from '@game/index.ts';
 import type { GameHandle } from '@render/index.ts';
 import { ClearBanner } from './ClearBanner.tsx';
@@ -83,6 +90,34 @@ export function App() {
     };
   }, []);
 
+  // β12.0-α: 起動時に URL を読んで該当パズルを直接ロード (SSG された prerender HTML 経由)
+  // 失敗時 (puzzle 不在等) はサイレントに 'tap-to-start' のままにする
+  useEffect(() => {
+    const target = parsePath(getInitialPath());
+    switch (target.kind) {
+      case 'top':
+        return;
+      case 'puzzles-index':
+      case 'category-index':
+        // ユーザー操作なしで puzzle-select に遷移 (TapToStart は省略)
+        setPhase('puzzle-select');
+        return;
+      case 'puzzle': {
+        // 該当パズルを直接ロード → playing
+        const url = `/puzzles/${target.category}/${target.id}.json`;
+        loadPuzzleData(url)
+          .then((data) => {
+            useGame.getState().loadPuzzle(data);
+          })
+          .catch((e) => {
+            console.warn('[router] puzzle direct load failed', e);
+            // フォールバック: tap-to-start のまま
+          });
+        return;
+      }
+    }
+  }, [setPhase]);
+
   // クリア時にベストタイム記録 + セル回転アニメ発火 → 完了で results 遷移
   useEffect(() => {
     if (phase !== 'cleared') {
@@ -110,14 +145,24 @@ export function App() {
 
   const handleStart = useCallback(() => {
     setPhase('puzzle-select');
+    navigate({ kind: 'puzzles-index' });
   }, [setPhase]);
 
   const handlePuzzleLoaded = useCallback(() => {
-    // GameStore.loadPuzzle が phase='playing' に遷移済
+    // GameStore.loadPuzzle が phase='playing' に遷移済 + URL を /puzzles/<cat>/<id>/ に書き換え
+    const puzzle = useGame.getState().currentPuzzle;
+    if (puzzle) {
+      navigate({
+        kind: 'puzzle',
+        category: puzzle.meta.category,
+        id: puzzle.meta.id,
+      });
+    }
   }, []);
 
   const handleReturnToSelect = useCallback(() => {
     setPhase('puzzle-select');
+    navigate({ kind: 'puzzles-index' });
   }, [setPhase]);
 
   // 旧来の null マウント/アンマウントは Windows Chrome WebGPU で空白バグを引き起こすため、

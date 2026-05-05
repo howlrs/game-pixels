@@ -9,7 +9,79 @@
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
     />
     <meta name="theme-color" content="#000000" />
-    <title>ピクセルズ</title>
+
+    <!-- SEO meta は build script (scripts/build-static-pages.mjs) で各 path の HTML 毎に上書きされる。
+         ここはトップ `/` 用のデフォルト + 開発時 (`bun run dev`) のフォールバック。
+         キーワード meta は無効 (Google 等無視)。OG image は絶対 URL 必須。 -->
+    <!-- @@SEO_HEAD_START@@ -->
+    <title>ピクセルズ - Web で遊ぶ無料ノノグラム / ピクチャーロジック | 21 パズル収録</title>
+    <meta
+      name="description"
+      content="行と列のヒント数字から塗るマスを論理だけで導く Web ノノグラム / ピクチャーロジック。5×5〜25×25 の 21 パズルすべて推測なしで解ける一意解 (CI 強制)。Undo/Redo、ズーム+パン、PWA でオフライン対応。広告・課金・登録ゼロ。"
+    />
+    <meta name="author" content="howlrs (寺島和宏)" />
+    <link rel="canonical" href="https://pixels.howlrs.net/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://pixels.howlrs.net/" />
+    <meta property="og:title" content="ピクセルズ - Web で遊ぶ無料ノノグラム / ピクチャーロジック" />
+    <meta
+      property="og:description"
+      content="5×5〜25×25 の 21 パズルすべて推測なしで解ける一意解。Undo/Redo、ズーム+パン、PWA でオフライン対応。広告・課金・登録ゼロ。"
+    />
+    <meta property="og:image" content="https://pixels.howlrs.net/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ピクセルズ - Web ノノグラム / ピクチャーロジック (うさぎパズル完成例)" />
+    <meta property="og:site_name" content="ピクセルズ" />
+    <meta property="og:locale" content="ja_JP" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://pixels.howlrs.net/" />
+    <meta name="twitter:title" content="ピクセルズ - Web で遊ぶ無料ノノグラム / ピクチャーロジック" />
+    <meta
+      name="twitter:description"
+      content="5×5〜25×25 の 21 パズルすべて推測なしで解ける一意解。Undo/Redo、ズーム+パン、PWA でオフライン対応。広告・課金・登録ゼロ。"
+    />
+    <meta name="twitter:image" content="https://pixels.howlrs.net/og-image.png" />
+    <meta name="twitter:image:alt" content="ピクセルズ - うさぎパズル完成例" />
+
+    <!-- JSON-LD: トップは VideoGame、各パズルでは VideoGame + Puzzle 詳細、一覧は ItemList で上書き -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "ピクセルズ",
+        "alternateName": ["Pixels", "Picross", "Nonogram"],
+        "url": "https://pixels.howlrs.net/",
+        "description": "行と列のヒント数字から塗るマスを論理だけで導く Web ノノグラム / ピクチャーロジック。5×5〜25×25 の 21 パズルすべて推測なしで解ける一意解 (CI 強制)。Undo/Redo、ズーム+パン、PWA でオフライン対応。広告・課金・登録ゼロ。",
+        "image": "https://pixels.howlrs.net/og-image.png",
+        "applicationCategory": "Game",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires modern browser with WebGPU or WebGL2 support.",
+        "genre": ["Logic Puzzle", "Nonogram", "Picross", "Picture Logic"],
+        "inLanguage": "ja",
+        "isAccessibleForFree": true,
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "JPY",
+          "availability": "https://schema.org/InStock"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "寺島和宏",
+          "alternateName": ["terashima kazuhiro", "howlrs"],
+          "url": "https://howlrs.net/"
+        }
+      }
+    </script>
+    <!-- @@SEO_HEAD_END@@ -->
+
+    <!-- β12.0-α: 起動時に URL から puzzle/category を解析するためのヒント (build script で各パズル HTML に書き換え) -->
+    <script>window.__PIXELS_INITIAL_PATH__ = "/";</script>
     <style>
       :root {
         --safe-top: env(safe-area-inset-top, 0px);
