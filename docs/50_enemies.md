@@ -9,13 +9,16 @@
 
 ## 5.2 共通インターフェース
 
+`hp` は **正の整数** で持たせ、踏みつけ・甲羅当たり・ファイア弾命中はすべて整数ダメージで一律処理する (踏み = 1 dmg を既定)。Goomba (`hp: 1`) のような即死敵は 1 hp + ダメージ 1、ボス系 (`hp: 5`) は耐久ヒット数として扱える。耐性 (例: ファイア弾無効) は `damage_resists` で表現する。
+
 ```ts
 interface Enemy {
   aabb: AABB;
   pos: SubPixelVec2;
   vel: SubPixelVec2;
   state: EnemyState;     // alive | stunned | shell_idle | shell_moving | dead
-  hp: number;
+  hp: number;            // 残り耐久。0 で死亡。
+  damage_resists: { stomp?: boolean; shell?: boolean; fireball?: boolean };
   facing: -1 | 1;
   on_ground: boolean;
   stomp_bounce: number;  // プレイヤーが踏んだときの反力 (subpixel/frame)
@@ -28,8 +31,9 @@ interface Enemy {
 
 type StompResult =
   | { kind: 'killed' }
-  | { kind: 'shelled' }      // 甲羅化 (Koopa)
-  | { kind: 'no_effect' }    // 無効 (棘)
+  | { kind: 'damaged' }       // 耐久が残ったので生存 (HP > 0)
+  | { kind: 'shelled' }       // 甲羅化 (Koopa)
+  | { kind: 'no_effect' }     // 無効 (棘)
   | { kind: 'damage_player' } // 反撃 (Spiny の上踏み等)
 ```
 
@@ -56,7 +60,9 @@ type StompResult =
 
 ### 5.3.3 Koopa Troopa (赤)
 
-- 移動: 緑と同じだが、**崖の手前で反転** (足元の前方タイルが空なら反転)。
+- 移動: 緑と同じだが、**崖の手前で反転**。
+- 崖判定は「足元の前方タイルが空か」を **進行方向に 4 subpixel 先 (ルックアヘッド)** で評価する。サブピクセル位置のまま判定すると 1 subpixel 越えで落下する不安定挙動になるため。
+- ルックアヘッドの分量は速度 `|vx|` に応じて調整 (`max(4, |vx| / 2)` subpixel)。
 - 他の挙動は緑と同じ。
 
 ### 5.3.4 Piranha Plant (パックンフラワー)
@@ -135,7 +141,8 @@ type Shell = {
 ## 5.6 ファイアボール (プレイヤー側)
 
 - プレイヤー Fire 状態でアクションボタン押下 → 1 個発射。同時上限 2 個。
-- 速度: `vx = ±64`、`vy = +24` (重力あり)。地面でバウンドする (`vy *= -0.7` 相当: 整数では `vy = -(vy * 7) >> 3`)。
+- 速度: `vx = ±64`、`vy = +24` (重力あり)。地面でバウンドする (`vy *= -0.7` 相当)。
+  - 整数で計算する場合は **`Math.trunc(-vy * 7 / 8)`** を採用する。`-(vy * 7) >> 3` は JS の算術右シフト仕様により負数で 0 方向に丸められず誤差を生む (例: `-1 >> 3 === -1`)。決定論を保つため算術シフトは使わない。
 - 寿命: 飛距離 256 px or 4 回バウンドで消滅。
 - 敵衝突: 敵の `on_fireball_hit` を呼ぶ。
 
