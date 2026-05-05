@@ -80,6 +80,23 @@ export function getSavedData(): SaveData {
 }
 
 /**
+ * β2.0-δ: 設定 (audio / a11y) を更新する。
+ * 部分更新 (partial) を受け取り、現在値とマージして即時 backend.save する。
+ * 戻り値は更新後の settings (UI 反映用)。
+ */
+export function updateSettings(
+  patch: { audio?: Partial<SaveData['settings']['audio']>; a11y?: Partial<SaveData['settings']['a11y']> },
+): SaveData['settings'] {
+  const next = {
+    audio: { ...saved.settings.audio, ...(patch.audio ?? {}) },
+    a11y: { ...saved.settings.a11y, ...(patch.a11y ?? {}) },
+  };
+  saved = { ...saved, settings: next };
+  if (backend) backend.save(saved);
+  return next;
+}
+
+/**
  * クリア記録を更新する。
  * 戻り値: 「更新前の bestTimeMs」(初クリアなら null)。
  * App.tsx 側で「今回のタイムが過去ベストより速いか (= NEW!)」を判定するために使う
