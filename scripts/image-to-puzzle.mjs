@@ -8,14 +8,16 @@
 // Gemini Pro deep 計画指摘 D-1: 単純 2 値化だと一意解にならない確率が高いため、
 // しきい値段階探索 + 最少 flip 探索 で QA 通過を試みる。
 //
-// 依存: Bun の builtin (Bun.file, sharp は使わない) のみで完結。
-// 画像デコードは PNG/JPEG ともに Bun の `Bun.file().bytes()` + 簡易 PNG/JPEG パーサーが
-// 安定して動かないので、PR-D では「pgm/ppm/raw 2D」と「.json 形式の手描き grid」を入力にとる。
-// 真の PNG/JPEG 対応は PR-E のために sharp を導入する想定。
+// β9.0-α: sharp 導入で PNG/JPEG/WebP 入力対応。
+// 既存の .json (2D 配列) / .grid (ASCII art) も引き続きサポート。
+//
+// sharp は devDependencies のみ (ランタイム bundle 影響なし)。
+// 画像入力時は内部で「resize → grayscale → 輝度しきい値 2 値化」のパイプライン。
 
 import { readFile } from 'node:fs/promises';
 import { writeFileSync, statSync } from 'node:fs';
 import { resolve, relative, isAbsolute } from 'node:path';
+import sharp from 'sharp';
 import { generateClueSet } from '../src/core/clue.ts';
 import { assessSolution } from '../src/qa/index.ts';
 
@@ -56,8 +58,11 @@ function parseArgs(argv) {
 }
 
 /**
- * .json 形式 (2D 0/1 配列) または .grid (テキスト ASCII art) からピクセルマトリクスを読み込む。
- * .png/.jpg は将来 sharp を入れたら対応する。
+ * .json 形式 (2D 0/1 配列) / .grid (テキスト ASCII art) /
+ * .png/.jpg/.jpeg/.webp (sharp 経由) からピクセルマトリクスを読み込む。
+ *
+ * 画像入力時は loadInput 内で resize しないが、後段の resizeToTarget で
+ * 最終的に target サイズに整える。
  */
 /** Gemini レビュー指摘 (バグ 1): 全行が同じ長さの矩形であることを確認 */
 function assertRectangular(matrix, label) {
@@ -76,6 +81,43 @@ async function loadInput(path) {
   const stat = statSync(path);
   if (stat.size > MAX_BYTES) throw new Error(`Input too large: ${stat.size} > ${MAX_BYTES}`);
   const ext = path.toLowerCase().split('.').pop();
+
+  // β9.0-α: 画像 (PNG/JPEG/WebP) は sharp で grayscale → raw pixel に変換
+  if (ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'webp') {
+    const buf = await readFile(path);
+    const meta = await sharp(buf).metadata();
+    if (
+      typeof meta.width !== 'number' ||
+      typeof meta.height !== 'number' ||
+      meta.width > MAX_RESOLUTION ||
+      meta.height > MAX_RESOLUTION
+    ) {
+      throw new Error(
+        `Image too large: ${meta.width}x${meta.height} > ${MAX_RESOLUTION} (or undecodable)`,
+      );
+    }
+    // grayscale 1ch + raw 出力で 0..255 の輝度配列を取得
+    const { data, info } = await sharp(buf)
+      .grayscale()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    if (info.channels !== 1) {
+      throw new Error(`Unexpected channels: ${info.channels} (expected 1 after grayscale)`);
+    }
+    const matrix = [];
+    for (let r = 0; r < info.height; r++) {
+      const row = new Array(info.width);
+      const offset = r * info.width;
+      for (let c = 0; c < info.width; c++) {
+        row[c] = data[offset + c]; // 0..255
+      }
+      matrix.push(row);
+    }
+    assertRectangular(matrix, `image ${ext}`);
+    // 後続の binarizeIfNeeded がしきい値 2 値化、resizeToTarget が target サイズに揃える
+    return matrix;
+  }
+
   const raw = await readFile(path, 'utf-8');
   if (ext === 'json') {
     let data;
@@ -105,13 +147,16 @@ async function loadInput(path) {
     return matrix;
   }
   throw new Error(
-    `Unsupported input format .${ext}. PR-D supports .json (2D 0/1 array) or .grid/.txt (ASCII '.'/'#').`,
+    `Unsupported input format .${ext}. Supported: .json (2D 0/1 array), .grid/.txt (ASCII '.'/'#'), .png/.jpg/.jpeg/.webp (image)`,
   );
 }
 
 /**
  * Otsu 2 値化的に「塗りすぎず薄すぎない」しきい値を探索する。
  * 入力が既に 2 値の場合 (0/1 のみ) は素通り。
+ *
+ * β9.0-α: 画像入力時は **暗い (低輝度) 部分を塗 (1)** とする (ノノグラムの直感)。
+ * 平均輝度をしきい値とし、それ未満を 1、それ以上を 0。
  */
 function binarizeIfNeeded(matrix) {
   // 0/1 のみなら何もしない
@@ -126,7 +171,7 @@ function binarizeIfNeeded(matrix) {
     if (!isBinary) break;
   }
   if (isBinary) return matrix.map((r) => r.map((v) => (v === 1 ? 1 : 0)));
-  // 0..255 の輝度として平均値で 2 値化
+  // 0..255 の輝度として平均値で 2 値化 (暗い部分を塗とする)
   let sum = 0;
   let count = 0;
   for (const row of matrix) {
@@ -136,7 +181,7 @@ function binarizeIfNeeded(matrix) {
     }
   }
   const avg = sum / count;
-  return matrix.map((row) => row.map((v) => (v >= avg ? 1 : 0)));
+  return matrix.map((row) => row.map((v) => (v < avg ? 1 : 0)));
 }
 
 /**
