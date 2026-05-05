@@ -23,6 +23,13 @@
 - レビュー結果と未決事項は [`docs/99_open-questions.md`](docs/99_open-questions.md) に集約する。
 - 章ごとに GitHub Issue を起票し、トピックブランチ → PR → main マージ → タグ付け の運用で履歴を残す。
 
+### バージョン
+
+| Tag | 状態 |
+|---|---|
+| `v0.1.0-draft` | 初稿 (Gemini レビュー前) |
+| `v0.2.0-docs-round1` | Gemini Pro Round1 レビュー反映済み (Issue #1/#2/#3, PR #4/#5/#6) |
+
 ## ライセンス
 
 [MIT License](LICENSE)。実装着手時にライブラリ依存を勘案して再確認する。
