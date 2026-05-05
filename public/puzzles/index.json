@@ -30,6 +30,86 @@
       "estimatedSolveSeconds": 60,
       "category": "5x5",
       "description": "プラス記号 (十字)"
+    },
+    {
+      "id": "cat",
+      "title": "ねこ",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "猫の顔"
+    },
+    {
+      "id": "house",
+      "title": "いえ",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "屋根のある家"
+    },
+    {
+      "id": "star",
+      "title": "ほし",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "5 角星"
+    },
+    {
+      "id": "mushroom",
+      "title": "きのこ",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "きのこ"
+    },
+    {
+      "id": "heart-big",
+      "title": "ハート (大)",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "大きなハート"
+    },
+    {
+      "id": "umbrella",
+      "title": "かさ",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "雨傘"
+    },
+    {
+      "id": "rocket",
+      "title": "ロケット",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "上向きロケット"
+    },
+    {
+      "id": "tree",
+      "title": "き",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "針葉樹"
     }
   ]
 }
