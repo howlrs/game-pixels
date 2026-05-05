@@ -29,8 +29,10 @@ import { getSavedData } from '@save/index.ts';
 const CATEGORY_ORDER: ReadonlyArray<PuzzleCategory> = ['5x5', '10x10', '15x15'];
 
 interface Props {
-  /** パズル選択トップへ戻る */
+  /** パズル選択トップへ戻る (App.tsx 側で setPhase('puzzle-select') を実行) */
   onReturnToSelect: () => void;
+  /** 今回クリアが新ベスト記録か (App.tsx で recordClear の戻り値から判定済み) */
+  isNewBest: boolean;
 }
 
 function formatTime(ms: number): string {
@@ -90,12 +92,11 @@ function PuzzleMiniature({
   );
 }
 
-export function ResultsPage({ onReturnToSelect }: Props) {
+export function ResultsPage({ onReturnToSelect, isNewBest }: Props) {
   const phase = useGame((s) => s.phase);
   const elapsed = useGame((s) => s.elapsedMs);
   const puzzle = useGame((s) => s.currentPuzzle);
   const loadPuzzleAction = useGame((s) => s.loadPuzzle);
-  const setPhase = useGame((s) => s.setPhase);
 
   const [index, setIndex] = useState<PuzzleIndex | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -119,17 +120,21 @@ export function ResultsPage({ onReturnToSelect }: Props) {
     };
   }, [phase]);
 
-  // Round 7-A / Gemini Pro 指摘 (a11y): マウント時に primary ボタンにフォーカスを移す
+  // Round 7-A / Gemini Pro 指摘 ③ (a11y): マウント直後の DOM 描画完了を待つため
+  // requestAnimationFrame 経由で primary ボタンにフォーカスを移す
+  // (StrictMode の二重マウント時にも focus 失敗しないことを保証)
   useEffect(() => {
     if (phase !== 'results') return;
-    primaryButtonRef.current?.focus();
+    const raf = requestAnimationFrame(() => {
+      primaryButtonRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(raf);
   }, [phase]);
 
   if (phase !== 'results' || !puzzle) return null;
 
   const savedData = getSavedData();
   const bestRecord = savedData.clearRecords[puzzle.meta.id];
-  const isNewBest = bestRecord != null && bestRecord.bestTimeMs === elapsed;
 
   // 同カテゴリの他パズル / 次レベルパズルを抽出
   const sameCategoryOthers: PuzzleMeta[] = [];
@@ -172,8 +177,8 @@ export function ResultsPage({ onReturnToSelect }: Props) {
     }
   }
 
+  // Round 7-A / Gemini 指摘 ①: setPhase 重複を避けるため親の onReturnToSelect に委譲
   function handleBackToSelect() {
-    setPhase('puzzle-select');
     onReturnToSelect();
   }
 
