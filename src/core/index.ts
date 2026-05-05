@@ -9,5 +9,16 @@ export { createInputBuffer } from './input/buffer.ts';
 export type { InputBuffer, LogicalKey } from './input/buffer.ts';
 export { NEUTRAL, deriveButtonState } from './input/snapshot.ts';
 export type { InputSnapshot, ButtonState } from './input/snapshot.ts';
-export { createPlayerState, stepPlayerPhysics, toPx } from './physics/player.ts';
+export {
+  createPlayerState,
+  stepPlayerInputAndVelocity,
+  tickPlayerJumpBuffer,
+  toPx,
+  updatePlayerGroundState,
+} from './physics/player.ts';
 export type { PlayerPhysicsState } from './physics/player.ts';
+export { resolveTileCollision } from './physics/tile-collision.ts';
+export type { AabbBody, CollisionResult } from './physics/tile-collision.ts';
+export { loadStage, tileAt, StageLoadError, validateCrossFields } from './stage/loader.ts';
+export { StageSchema, TILE_KINDS, isTileKind } from './stage/schema.ts';
+export type { Stage, StageArea, TileKind } from './stage/schema.ts';

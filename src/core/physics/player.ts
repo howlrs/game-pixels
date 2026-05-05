@@ -1,8 +1,16 @@
-// docs §20.2 / §2.2.4 / §2.2.6: プレイヤー物理 step (Step C MVP)。
-// - 二段速度モデル (簡易): 入力方向に ACCEL ずつ加算、上限 ±MAX_VX、入力なしで GROUND_FRICTION 減衰
+// docs §20.2 / §2.2.4 / §2.2.6: プレイヤー物理 step。
+// - 二段速度モデル: 入力方向に ACCEL ずつ加算、上限 ±MAX_VX、入力なしで GROUND_FRICTION 減衰
 // - 可変ジャンプ高 (二重重力): jump 保持中は GRAVITY_HOLD、離した後 GRAVITY_FALL
 // - Coyote Time / Jump Buffer
-// - 静的床 (groundY) との Y 衝突のみ。X 衝突は Step D の実タイル衝突で扱う
+//
+// Step D 以降は実タイル衝突に位置更新と衝突解決を任せる。本モジュールは「入力 → 速度更新」と
+// 「衝突結果 (hitBottom) → 接地状態更新」を独立した関数として提供する。
+//
+// 流れ (呼び出し側):
+//   1. stepPlayerInputAndVelocity(player, snapshot, running)  // vx/vy 更新
+//   2. resolveTileCollision(body, area, tilePx)               // x/y 更新 + 衝突解決
+//   3. updatePlayerGroundState(player, hitBottom)             // onGround / Coyote 更新
+//   4. tickPlayerJumpBuffer(player)                            // jumpBuffer デクリメント
 
 import type { InputSnapshot } from '@core/input/snapshot.ts';
 import {
@@ -31,7 +39,7 @@ export interface PlayerPhysicsState {
   onGround: boolean;
   /** 直近に接地していたフレーム数 (Coyote 用)。地面を離れた瞬間にカウント開始 */
   framesSinceLeftGround: number;
-  /** ジャンプボタンを離してから / ジャンプ中フラグ。ジャンプ消化済かどうか */
+  /** ジャンプ中フラグ (jump button を保持しているか)。可変ジャンプ高の二重重力切替に使う */
   jumpHeld: boolean;
   /** Jump Buffer: ジャンプ入力されてから残るフレーム数 */
   jumpBufferFrames: number;
@@ -50,31 +58,13 @@ export function createPlayerState(initialX: number, initialY: number): PlayerPhy
   };
 }
 
-export interface StageBounds {
-  /** ステージ X 範囲 (subpixel)。Step C 段階では画面端で clamp。Step D で実タイル衝突に置換 */
-  minX: number;
-  maxX: number;
-}
-
-/**
- * 1 物理ステップ。snapshot の入力で player を更新し、groundY (床の Y subpixel) で着地判定する。
- * groundY は player の中心 Y がそれ以上にならないように clamp される。
- * bounds 指定時は X もその範囲で clamp する (Step C / Gemini Pro 指摘で追加)。
- *
- * @param player ミューテートされる
- * @param snapshot 入力スナップショット
- * @param groundY 床の Y subpixel (床より上 = Y がそれ未満)
- * @param running Run ボタン押下時の最大速度に切替
- * @param bounds  X クランプ範囲 (省略時は無制限)
- */
-export function stepPlayerPhysics(
+/** Step D 以降の構成: 入力反映 + 速度更新までを行い、位置更新と衝突解決は呼び出し側に任せる。 */
+export function stepPlayerInputAndVelocity(
   player: PlayerPhysicsState,
   snapshot: InputSnapshot,
-  groundY: number,
   running: boolean,
-  bounds?: StageBounds,
 ): void {
-  // --- 横運動 ---
+  // 横運動
   const maxVx = running ? RUN_MAX_VX : WALK_MAX_VX;
   if (snapshot.ax !== 0) {
     const inputDir = snapshot.ax;
@@ -82,19 +72,16 @@ export function stepPlayerPhysics(
     const accel = ACCEL * (skidding ? SKID_MULTIPLIER : 1);
     player.vx += inputDir * accel;
   } else if (player.onGround) {
-    // 摩擦
     if (player.vx > 0) player.vx = Math.max(0, player.vx - GROUND_FRICTION);
     else if (player.vx < 0) player.vx = Math.min(0, player.vx + GROUND_FRICTION);
   }
-  // 速度上限
   if (player.vx > maxVx) player.vx = maxVx;
   else if (player.vx < -maxVx) player.vx = -maxVx;
 
-  // --- ジャンプ入力消化 ---
+  // ジャンプ入力
   if (snapshot.jump === 'pressed') {
     player.jumpBufferFrames = JUMP_BUFFER_FRAMES;
   }
-  // Jump Buffer + (接地中 OR Coyote 時間内) でジャンプ発動
   const canJump =
     player.jumpBufferFrames > 0 && (player.onGround || player.framesSinceLeftGround <= COYOTE_FRAMES);
   if (canJump) {
@@ -104,50 +91,34 @@ export function stepPlayerPhysics(
     player.onGround = false;
     player.framesSinceLeftGround = 1000; // Coyote 不可 (再ジャンプ防止)
   }
-  // ジャンプボタンを離したら "jumpHeld=false" にして以降 GRAVITY_FALL を使う
   if (snapshot.jump === 'released' || snapshot.jump === 'up') {
     player.jumpHeld = false;
   }
 
-  // --- 縦運動 (二重重力) ---
+  // 縦運動 (二重重力)
   const gravity = player.jumpHeld && player.vy < 0 ? GRAVITY_HOLD : GRAVITY_FALL;
   player.vy += gravity;
   if (player.vy > TERMINAL_VY) player.vy = TERMINAL_VY;
+}
 
-  // --- 位置更新 (Step C 簡易: X は壁衝突なし、Y は床のみ) ---
-  player.x += player.vx;
-  player.y += player.vy;
-
-  // X クランプ (Step C / Gemini Pro 指摘: 画面外への見失い防止、Step D で実タイル衝突に置換)
-  if (bounds) {
-    if (player.x < bounds.minX) {
-      player.x = bounds.minX;
-      if (player.vx < 0) player.vx = 0;
-    } else if (player.x > bounds.maxX) {
-      player.x = bounds.maxX;
-      if (player.vx > 0) player.vx = 0;
-    }
-  }
-
-  // 床判定 (Step D で実タイル衝突に置換)
-  if (player.y >= groundY) {
-    player.y = groundY;
-    if (player.vy > 0) player.vy = 0;
+/** 衝突結果 (hitBottom) を見て、onGround / Coyote タイマーを更新する。 */
+export function updatePlayerGroundState(player: PlayerPhysicsState, hitBottom: boolean): void {
+  if (hitBottom) {
     if (!player.onGround) {
       player.onGround = true;
     }
     player.framesSinceLeftGround = 0;
   } else {
     if (player.onGround) {
-      // 地面を離れた瞬間: Coyote 開始
       player.framesSinceLeftGround = 0;
       player.onGround = false;
     } else {
       player.framesSinceLeftGround += 1;
     }
   }
+}
 
-  // Jump Buffer のデクリメント
+export function tickPlayerJumpBuffer(player: PlayerPhysicsState): void {
   if (player.jumpBufferFrames > 0) player.jumpBufferFrames -= 1;
 }
 
