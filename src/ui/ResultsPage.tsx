@@ -101,8 +101,27 @@ export function ResultsPage({ onReturnToSelect, isNewBest }: Props) {
   const [index, setIndex] = useState<PuzzleIndex | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // β2.0-γ: 共有ステータス (idle / sharing / copied / failed)
+  const [shareStatus, setShareStatus] = useState<'idle' | 'sharing' | 'copied' | 'failed'>('idle');
 
   const primaryButtonRef = useRef<HTMLButtonElement | null>(null);
+  // β2.0-γ / Gemini 指摘 1: タイマー競合 + アンマウント時のステート更新を防ぐ
+  const shareResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (shareResetTimerRef.current !== null) {
+        clearTimeout(shareResetTimerRef.current);
+        shareResetTimerRef.current = null;
+      }
+    };
+  }, []);
+  function scheduleShareReset(ms: number) {
+    if (shareResetTimerRef.current !== null) clearTimeout(shareResetTimerRef.current);
+    shareResetTimerRef.current = setTimeout(() => {
+      shareResetTimerRef.current = null;
+      setShareStatus('idle');
+    }, ms);
+  }
 
   // Round 7-A / Gemini Pro 指摘: 非同期 fetch は cancelled フラグで race condition 回避
   useEffect(() => {
@@ -182,6 +201,53 @@ export function ResultsPage({ onReturnToSelect, isNewBest }: Props) {
     onReturnToSelect();
   }
 
+  // β2.0-γ: クリア結果を共有 (Web Share API → clipboard fallback)
+  async function handleShare() {
+    if (!puzzle || shareStatus === 'sharing') return;
+    setShareStatus('sharing');
+    const text = `🎉 ピクセルズ「${puzzle.meta.title}」(${puzzle.meta.category}) を ${formatTime(elapsed)} でクリア!`;
+    const url = typeof window !== 'undefined' ? window.location.origin : '';
+    const shareData: ShareData = {
+      title: 'ピクセルズ — クリア!',
+      text,
+      url,
+    };
+    // Web Share API が使え、かつデータが共有可能なら使う
+    const canUseShare =
+      typeof navigator !== 'undefined' &&
+      typeof navigator.share === 'function' &&
+      (typeof navigator.canShare !== 'function' || navigator.canShare(shareData));
+    if (canUseShare) {
+      try {
+        await navigator.share(shareData);
+        setShareStatus('idle'); // share dialog 完了は idle に戻すだけ (成功/cancel 不問)
+        return;
+      } catch (e) {
+        // ユーザー cancel (AbortError) は静かに idle に戻す
+        if (e && typeof e === 'object' && 'name' in e && (e as { name: string }).name === 'AbortError') {
+          setShareStatus('idle');
+          return;
+        }
+        // その他は clipboard fallback へフォールスルー
+      }
+    }
+    // clipboard fallback (Gemini 指摘 4: title も含めて見栄えを揃える)
+    const titlePrefix = 'ピクセルズ — クリア!\n';
+    const fullText = url ? `${titlePrefix}${text}\n${url}` : `${titlePrefix}${text}`;
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(fullText);
+        setShareStatus('copied');
+        scheduleShareReset(2500);
+        return;
+      } catch {
+        /* fall through to failed */
+      }
+    }
+    setShareStatus('failed');
+    scheduleShareReset(2500);
+  }
+
   function renderPuzzleButton(p: PuzzleMeta, extraClass?: string) {
     const cleared = savedData.clearRecords[p.id];
     return (
@@ -250,6 +316,26 @@ export function ResultsPage({ onReturnToSelect, isNewBest }: Props) {
           >
             🔁 もう一度
           </button>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="share"
+            disabled={shareStatus === 'sharing'}
+            aria-label="クリア結果をシェア"
+          >
+            {/* β2.0-γ / Gemini 指摘 2: 視覚ラベルは状況依存だが、ボタンの aria-label は固定。
+                ステータス通知は隣接の visually-hidden ライブ領域で読み上げ。 */}
+            <span aria-hidden="true">
+              {shareStatus === 'sharing' && '共有中…'}
+              {shareStatus === 'copied' && '✓ コピーしました'}
+              {shareStatus === 'failed' && '✗ 共有失敗'}
+              {shareStatus === 'idle' && '📤 シェア'}
+            </span>
+          </button>
+          <span className="visually-hidden" role="status" aria-live="polite">
+            {shareStatus === 'copied' && 'クリア結果をクリップボードにコピーしました'}
+            {shareStatus === 'failed' && '共有に失敗しました'}
+          </span>
           <button type="button" onClick={handleBackToSelect} className="secondary" disabled={loading}>
             🏠 パズル選択へ
           </button>
