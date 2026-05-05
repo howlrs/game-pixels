@@ -57,6 +57,7 @@ interface InputSnapshot {
 - 既定で `PointerEvent` のみ採用 (Pointer Events Level 2 は全モダンブラウザで対応済み, 2026 時点)。
 - `pointerdown` / `pointermove` / `pointerup` / `pointercancel` を扱う。
 - `touch-action: none` を CSS で当て、ダブルタップズームやスクロールを無効化。
+- ただし iOS Safari のエッジスワイプ (戻る) や一部の OS ジェスチャは CSS だけでは止まらない。ゲームキャンバス上の `touchstart` / `touchmove` リスナーを **`{ passive: false }` で登録**し、必要に応じて `e.preventDefault()` を呼ぶことで補強する (PointerEvent と並行登録)。
 
 ### 9.5.3 仮想ボタンのデッドゾーンとヒットボックス
 
@@ -100,6 +101,7 @@ interface InputSnapshot {
 - 入力スナップショットの列を [frame] -> InputSnapshot で記録 (§94 のリプレイ機能で使用)。
 - フォーマット: 各 frame の bitmask + 軸 (8 bit/frame 程度)。
 - ゴーストや TAS 用としても使える設計。
+- **外部から読み込む InputSnapshot は厳密にバリデーションする**。`ax/ay` は `{-1, 0, 1}` のみ、ボタン状態は列挙値、軸が `NaN` / `Infinity` / 範囲外の場合は読み込み拒否 + 警告。これを怠ると物理エンジンに NaN が伝播し、決定論破壊・無限ループの原因になる。
 
 ## 9.10 既知の罠と対策
 

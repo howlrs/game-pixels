@@ -72,12 +72,12 @@ const orientation = matchMedia('(orientation: portrait)').matches ? 'portrait' :
 
 | デバイス | 注意 |
 |---|---|
-| iOS Safari | フルスクリーン非対応 (PWA 経由のみ)。`100vh` の動的問題 |
-| Android Chrome | `address bar` の伸縮で viewport 高さが変動 |
+| iOS Safari | フルスクリーン非対応 (PWA 経由のみ)。viewport 高さは `100dvh` (Dynamic Viewport Height) を CSS で使うことで JS 介在なくネイティブ解決。`visualViewport` API は古環境フォールバック用 |
+| Android Chrome | `address bar` 伸縮で viewport 高さが変動 → 同じく `100dvh` で対応 |
 | iPad (Pencil) | Pointer Events で stylus を判定し、ゲーム操作には使わせない (誤操作回避) |
 | Surface (Pen) | 同上 |
 | ゲーミングモニタ高 Hz | 描画補間で滑らかに (§94) |
-| 折りたたみスマホ | 中央折り目でジョイパッドが分断されないよう、左/右の片側に集約配置可能なオプション |
+| 折りたたみスマホ | 中央折り目でジョイパッドが分断されないよう、左/右の片側に集約配置可能なオプション (フローティング推奨) |
 
 ## 17.12 画面回転
 
