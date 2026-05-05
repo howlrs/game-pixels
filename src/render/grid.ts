@@ -98,6 +98,10 @@ export interface GridRenderer {
   playClearAnimation(state: GridDrawState, onComplete: () => void): void;
   destroy(): void;
   layout(): GridLayout;
+  /**
+   * β10.0-α: ビューポート (scale + pan) を盤面 root に適用。背景は影響を受けない。
+   */
+  setViewport(scale: number, panX: number, panY: number): void;
 }
 
 export interface GridDrawState {
@@ -109,7 +113,15 @@ export interface GridDrawState {
 }
 
 export function createGridRenderer(app: Application): GridRenderer {
+  // β10.0-α: 背景 (zoom 影響なし) と 盤面 (zoom/pan 適用) を分離
+  // root: 親コンテナ (bg + boardRoot を保持)
+  // bgRoot: 背景 (canvas 全面) — viewport 影響なし
+  // boardRoot: ヒント数字 / セル / グリッド線 / カーソル — viewport 適用
   const root = new Container();
+  const bgRoot = new Container();
+  const boardRoot = new Container();
+  root.addChild(bgRoot);
+  root.addChild(boardRoot);
   app.stage.addChild(root);
 
   // 計算後の layout を保持
@@ -154,7 +166,9 @@ export function createGridRenderer(app: Application): GridRenderer {
   }
 
   function clear(): void {
-    root.removeChildren().forEach((c) => c.destroy({ children: true }));
+    // β10.0-α: bgRoot と boardRoot をそれぞれクリア (root 自体は保持)
+    bgRoot.removeChildren().forEach((c) => c.destroy({ children: true }));
+    boardRoot.removeChildren().forEach((c) => c.destroy({ children: true }));
   }
 
   function draw(state: GridDrawState): void {
@@ -164,9 +178,9 @@ export function createGridRenderer(app: Application): GridRenderer {
     const { boardLeftPx, boardTopPx, cellPx, width, height } = layout;
     const palette = getPalette();
 
-    // 1. 背景
+    // 1. 背景 (bgRoot へ — zoom/pan の影響を受けない)
     const bg = new Graphics().rect(0, 0, app.canvas.width, app.canvas.height).fill(palette.bg);
-    root.addChild(bg);
+    bgRoot.addChild(bg);
 
     // 2. 列ヒント (盤面の上)
     const hintStyle = new TextStyle({
@@ -230,7 +244,7 @@ export function createGridRenderer(app: Application): GridRenderer {
         txt.anchor.set(0.5, 1);
         txt.x = x;
         txt.y = boardTopPx - 2 - (clue.length - 1 - i) * (cellPx * 0.5);
-        root.addChild(txt);
+        boardRoot.addChild(txt);
       }
     }
 
@@ -253,7 +267,7 @@ export function createGridRenderer(app: Application): GridRenderer {
         txt.anchor.set(1, 0.5);
         txt.x = boardLeftPx - 4 - (clue.length - 1 - i) * (cellPx * 0.6);
         txt.y = y;
-        root.addChild(txt);
+        boardRoot.addChild(txt);
       }
     }
 
@@ -275,11 +289,11 @@ export function createGridRenderer(app: Application): GridRenderer {
           const xG = new Graphics();
           xG.moveTo(x + inset, y + inset).lineTo(x + cellPx - inset, y + cellPx - inset).stroke({ color: palette.xMark, width: 2 });
           xG.moveTo(x + cellPx - inset, y + inset).lineTo(x + inset, y + cellPx - inset).stroke({ color: palette.xMark, width: 2 });
-          root.addChild(xG);
+          boardRoot.addChild(xG);
         }
       }
     }
-    root.addChild(cellsG);
+    boardRoot.addChild(cellsG);
 
     // 5. グリッド線 (5 セルごと太く)
     // Pixi.js v8 の Graphics で moveTo+lineTo+stroke をループ連続コールすると、
@@ -302,7 +316,7 @@ export function createGridRenderer(app: Application): GridRenderer {
       // 横線
       gridG.rect(boardLeftPx, boardTopPx + i * cellPx - Math.floor(w / 2), totalW, w).fill(color);
     }
-    root.addChild(gridG);
+    boardRoot.addChild(gridG);
 
     // 6. カーソル (キーボード操作時のみ)
     if (state.cursor) {
@@ -311,7 +325,7 @@ export function createGridRenderer(app: Application): GridRenderer {
       const cursorG = new Graphics()
         .rect(cx + 1, cy + 1, cellPx - 2, cellPx - 2)
         .stroke({ color: palette.cursor, width: 2 });
-      root.addChild(cursorG);
+      boardRoot.addChild(cursorG);
     }
   }
 
@@ -377,7 +391,8 @@ export function createGridRenderer(app: Application): GridRenderer {
     const palette = getPalette();
     const animContainer = new Container();
     activeAnimContainer = animContainer;
-    root.addChild(animContainer);
+    // β10.0-α: アニメも viewport 影響下に置く (boardRoot へ)
+    boardRoot.addChild(animContainer);
 
     // 塗りセル一覧を抽出 + アニメ初期化
     interface AnimCell {
@@ -474,6 +489,11 @@ export function createGridRenderer(app: Application): GridRenderer {
     draw,
     playClearAnimation,
     layout: () => currentLayout,
+    setViewport: (scale, panX, panY) => {
+      // β10.0-α: 盤面 (boardRoot) のみ viewport 適用、bgRoot は不変
+      boardRoot.scale.set(scale);
+      boardRoot.position.set(panX, panY);
+    },
     destroy: () => {
       if (activeAnimCancel) activeAnimCancel();
       clear();

@@ -45,6 +45,30 @@ export interface DragSession {
   targetState: CellState;
 }
 
+/**
+ * β10.0-α: ズーム+パンビューポート。
+ * scale は 1.0 が等倍、panX/Y は world 座標系のオフセット (px)。
+ *
+ * 永続化 NG (Gemini Pro deep 指摘):
+ * 端末サイズで適切な値が異なるため localStorage に保存しない。
+ * ロード時に都度 autoFitViewport で初期化する。
+ */
+export interface Viewport {
+  scale: number;
+  panX: number;
+  panY: number;
+}
+
+export const VIEWPORT_MIN_SCALE = 0.5;
+export const VIEWPORT_MAX_SCALE = 4.0;
+// Gemini Pro 指摘 3: pan 値の浮動小数精度落ち防止 (極端なスワイプ時のセーフティ)
+export const VIEWPORT_PAN_LIMIT = 10000;
+export const VIEWPORT_DEFAULT: Viewport = { scale: 1, panX: 0, panY: 0 };
+
+function clampPan(v: number): number {
+  return Math.max(-VIEWPORT_PAN_LIMIT, Math.min(VIEWPORT_PAN_LIMIT, v));
+}
+
 interface GameStoreState {
   phase: AppPhase;
   currentPuzzle: PuzzleData | null;
@@ -66,6 +90,8 @@ interface GameStoreState {
    */
   history: ReadonlyArray<{ board: Board; marks: ClueMarkState }>;
   historyCursor: number;
+  /** β10.0-α: ズーム+パン UI のビューポート (永続化 NG) */
+  viewport: Viewport;
 }
 
 /**
@@ -113,6 +139,14 @@ interface GameStoreActions {
   /** β5.0-α: 1 ステップ redo */
   redo: () => void;
   /** UI 用: undo/redo 可否 (購読対象として扱える派生値ではあるが、selector で購読する) */
+  /** β10.0-α: ビューポートを直接更新 (clamp は呼び出し側で済ませる) */
+  setViewport: (vp: Viewport) => void;
+  /** β10.0-α: scale を中心点 (canvas 座標) を保ったままセット */
+  zoomAt: (nextScale: number, anchorCanvasX: number, anchorCanvasY: number) => void;
+  /** β10.0-α: pan のみ加算 */
+  panBy: (deltaX: number, deltaY: number) => void;
+  /** β10.0-α: ビューポートを初期状態に戻す */
+  resetViewport: () => void;
 }
 
 export type GameStore = GameStoreState & GameStoreActions;
@@ -176,6 +210,8 @@ export const useGame = create<GameStore>((set, get) => ({
   // β5.0-α: undo/redo 履歴 (初期は EMPTY_BOARD + 空マークのみ)
   history: [{ board: EMPTY_BOARD, marks: EMPTY_MARKS }],
   historyCursor: 0,
+  // β10.0-α: ズーム+パン UI 初期状態
+  viewport: VIEWPORT_DEFAULT,
 
   setPhase: (phase) => set({ phase }),
 
@@ -234,6 +270,8 @@ export const useGame = create<GameStore>((set, get) => ({
         phase: restore.isPaused ? 'paused' : 'playing',
         history: restoredHistory,
         historyCursor: restoredCursor,
+        // β10.0-α: viewport は端末固有なので復元せず初期化
+        viewport: VIEWPORT_DEFAULT,
       });
       return;
     }
@@ -253,6 +291,8 @@ export const useGame = create<GameStore>((set, get) => ({
       // β5.0-α: 新パズルロードで履歴も初期化 (board + marks のスナップショット)
       history: [{ board: initialBoard, marks: initialMarks }],
       historyCursor: 0,
+      // β10.0-α: 新パズルロードで viewport も初期化
+      viewport: VIEWPORT_DEFAULT,
     });
   },
 
@@ -407,4 +447,39 @@ export const useGame = create<GameStore>((set, get) => ({
       set({ phase: 'cleared' });
     }
   },
+
+  // β10.0-α: ビューポート操作 (ズーム+パン)
+  // Gemini Pro 指摘 3: pan は ±VIEWPORT_PAN_LIMIT で緩くクランプ (浮動小数精度落ち防止)
+  setViewport: (vp) => {
+    const clampedScale = Math.max(VIEWPORT_MIN_SCALE, Math.min(VIEWPORT_MAX_SCALE, vp.scale));
+    set({ viewport: { scale: clampedScale, panX: clampPan(vp.panX), panY: clampPan(vp.panY) } });
+  },
+
+  zoomAt: (nextScale, anchorCanvasX, anchorCanvasY) => {
+    const { viewport } = get();
+    const clamped = Math.max(VIEWPORT_MIN_SCALE, Math.min(VIEWPORT_MAX_SCALE, nextScale));
+    if (clamped === viewport.scale) return;
+    // anchor world 座標を不変に保つ:
+    //   canvasX = world * scale + pan
+    //   world = (canvasX - pan) / scale
+    //   panNew = canvasX - world * scaleNew
+    const worldX = (anchorCanvasX - viewport.panX) / viewport.scale;
+    const worldY = (anchorCanvasY - viewport.panY) / viewport.scale;
+    const panX = clampPan(anchorCanvasX - worldX * clamped);
+    const panY = clampPan(anchorCanvasY - worldY * clamped);
+    set({ viewport: { scale: clamped, panX, panY } });
+  },
+
+  panBy: (deltaX, deltaY) => {
+    const { viewport } = get();
+    set({
+      viewport: {
+        ...viewport,
+        panX: clampPan(viewport.panX + deltaX),
+        panY: clampPan(viewport.panY + deltaY),
+      },
+    });
+  },
+
+  resetViewport: () => set({ viewport: VIEWPORT_DEFAULT }),
 }));

@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { computeProgress, formatTime } from '@core/index.ts';
 import { useAudio } from '@audio/index.ts';
-import { useGame } from '@game/index.ts';
+import { useGame, VIEWPORT_MAX_SCALE, VIEWPORT_MIN_SCALE } from '@game/index.ts';
 import { HelpModal } from './HelpModal.tsx';
 import { SettingsModal } from './SettingsModal.tsx';
 
@@ -41,6 +41,36 @@ export function Hud() {
   // β2.0-β: ミュート状態は Zustand 経由 (Settings Modal とも同期可能)
   const muted = useAudio((s) => s.muted);
   const toggleMuted = useAudio((s) => s.toggleMuted);
+  // β10.0-α: ズーム+パン UI
+  const viewportScale = useGame((s) => s.viewport.scale);
+  // Gemini Pro 指摘 1: pan のみでも reset 必要なため pan も購読
+  const viewportPanX = useGame((s) => s.viewport.panX);
+  const viewportPanY = useGame((s) => s.viewport.panY);
+  const setViewport = useGame((s) => s.setViewport);
+  const resetViewport = useGame((s) => s.resetViewport);
+  const canZoomIn = viewportScale < VIEWPORT_MAX_SCALE - 1e-3;
+  const canZoomOut = viewportScale > VIEWPORT_MIN_SCALE + 1e-3;
+  // Gemini Pro 指摘 1: pan-only でも reset を有効化 (画面外パン → 復帰不能を防ぐ)
+  const isZoomed =
+    Math.abs(viewportScale - 1) > 1e-3 ||
+    Math.abs(viewportPanX) > 1e-3 ||
+    Math.abs(viewportPanY) > 1e-3;
+  // zoomAt は canvas 物理 px 座標 (内部解像度系) を anchor として受け取る。
+  // ボタン操作では「canvas の物理中心」をそのまま渡せば良い (clientX→canvas 変換は不要)。
+  function zoomCenter(factor: number) {
+    const cv = document.querySelector<HTMLCanvasElement>('canvas');
+    if (cv) {
+      useGame.getState().zoomAt(viewportScale * factor, cv.width / 2, cv.height / 2);
+    } else {
+      setViewport({ scale: viewportScale * factor, panX: 0, panY: 0 });
+    }
+  }
+  function zoomIn() {
+    zoomCenter(1.25);
+  }
+  function zoomOut() {
+    zoomCenter(1 / 1.25);
+  }
 
   // β3.0-γ: 進捗% (memoize: board / puzzle が変わった時のみ再計算)
   const progressPct = useMemo(() => {
@@ -134,6 +164,37 @@ export function Hud() {
           title="やり直す (Cmd/Ctrl+Shift+Z)"
         >
           <span aria-hidden="true">↷</span>
+        </button>
+        {/* β10.0-α: ズーム +/- / リセット */}
+        <button
+          type="button"
+          onClick={zoomOut}
+          className="hud-icon-btn"
+          aria-label="ズームアウト"
+          disabled={!canZoomOut}
+          title="ズームアウト"
+        >
+          <span aria-hidden="true">−</span>
+        </button>
+        <button
+          type="button"
+          onClick={zoomIn}
+          className="hud-icon-btn"
+          aria-label="ズームイン"
+          disabled={!canZoomIn}
+          title="ズームイン"
+        >
+          <span aria-hidden="true">+</span>
+        </button>
+        <button
+          type="button"
+          onClick={resetViewport}
+          className="hud-icon-btn"
+          aria-label="ズームをリセット"
+          disabled={!isZoomed}
+          title="ズームをリセット"
+        >
+          <span aria-hidden="true">⤢</span>
         </button>
         <button
           type="button"

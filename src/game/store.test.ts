@@ -232,4 +232,75 @@ describe('Undo / Redo (β5.0-α)', () => {
     useGame.getState().undo();
     expect(useGame.getState().historyCursor).toBe(cursorBeforeDrag);
   });
+
+  // β10.0-α: viewport (ズーム+パン) テスト
+  describe('viewport', () => {
+    test('初期 viewport は scale=1, pan=0,0', () => {
+      useGame.getState().loadPuzzle(HEART);
+      const vp = useGame.getState().viewport;
+      expect(vp.scale).toBe(1);
+      expect(vp.panX).toBe(0);
+      expect(vp.panY).toBe(0);
+    });
+
+    test('setViewport は scale を [0.5, 4.0] にクランプ', () => {
+      useGame.getState().setViewport({ scale: 10, panX: 0, panY: 0 });
+      expect(useGame.getState().viewport.scale).toBe(4.0);
+      useGame.getState().setViewport({ scale: 0.1, panX: 0, panY: 0 });
+      expect(useGame.getState().viewport.scale).toBe(0.5);
+    });
+
+    test('zoomAt は anchor の world 座標を保持', () => {
+      // anchor canvas 座標 (200, 100) で scale 1→2 にズーム
+      useGame.getState().setViewport({ scale: 1, panX: 0, panY: 0 });
+      useGame.getState().zoomAt(2, 200, 100);
+      const vp = useGame.getState().viewport;
+      expect(vp.scale).toBe(2);
+      // world = (200 - 0) / 1 = 200, panX = 200 - 200 * 2 = -200
+      expect(vp.panX).toBe(-200);
+      expect(vp.panY).toBe(-100);
+    });
+
+    test('panBy は累積する', () => {
+      useGame.getState().setViewport({ scale: 1, panX: 10, panY: 20 });
+      useGame.getState().panBy(5, -3);
+      const vp = useGame.getState().viewport;
+      expect(vp.panX).toBe(15);
+      expect(vp.panY).toBe(17);
+    });
+
+    test('resetViewport で初期値に戻る', () => {
+      useGame.getState().setViewport({ scale: 2.5, panX: 100, panY: -50 });
+      useGame.getState().resetViewport();
+      const vp = useGame.getState().viewport;
+      expect(vp.scale).toBe(1);
+      expect(vp.panX).toBe(0);
+      expect(vp.panY).toBe(0);
+    });
+
+    test('loadPuzzle で viewport が初期化される', () => {
+      useGame.getState().setViewport({ scale: 3, panX: 50, panY: 50 });
+      useGame.getState().loadPuzzle(HEART);
+      const vp = useGame.getState().viewport;
+      expect(vp.scale).toBe(1);
+      expect(vp.panX).toBe(0);
+      expect(vp.panY).toBe(0);
+    });
+
+    // Gemini Pro 指摘 3: pan は ±10000 で緩くクランプ
+    test('panBy は ±VIEWPORT_PAN_LIMIT でクランプ', () => {
+      useGame.getState().setViewport({ scale: 1, panX: 0, panY: 0 });
+      useGame.getState().panBy(99999, -99999);
+      const vp = useGame.getState().viewport;
+      expect(vp.panX).toBe(10000);
+      expect(vp.panY).toBe(-10000);
+    });
+
+    test('setViewport の pan も ±VIEWPORT_PAN_LIMIT でクランプ', () => {
+      useGame.getState().setViewport({ scale: 1, panX: 50000, panY: -50000 });
+      const vp = useGame.getState().viewport;
+      expect(vp.panX).toBe(10000);
+      expect(vp.panY).toBe(-10000);
+    });
+  });
 });

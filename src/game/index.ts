@@ -1,5 +1,11 @@
 // docs §14.1 game/: ゲームロジック (Zustand store)
-export { useGame } from './store.ts';
+export {
+  useGame,
+  VIEWPORT_DEFAULT,
+  VIEWPORT_MAX_SCALE,
+  VIEWPORT_MIN_SCALE,
+  VIEWPORT_PAN_LIMIT,
+} from './store.ts';
 export type {
   AppPhase,
   ClueMarkState,
@@ -8,4 +14,5 @@ export type {
   GameStore,
   InputMode,
   RestoreSnapshot,
+  Viewport,
 } from './store.ts';
