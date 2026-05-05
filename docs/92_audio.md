@@ -1,11 +1,17 @@
 # 92. オーディオ
 
+> **現行実装メモ (β2.0-β / β11.0-α)**: 設計当初は Ogg/AAC ファイル + Howler を想定していたが、
+> bundle 軽量化と PWA オフライン体験を優先して **WebAudio 自前合成** に方針転換した。
+> SE は `src/audio/synth.ts` (β2.0-β) / BGM は `src/audio/bgm.ts` (β11.0-α) で実装。
+> 以下 §12.5 までは設計時の方針を残しているが、「Howler / 音源ファイル」前提部分は読み替え必要
+> (現行は WebAudio 直接合成で音声ファイル ゼロ)。
+
 ## 12.1 設計目標
 
 - ブラウザの自動再生制限を確実に回避する (初回操作で AudioContext 再開)。
 - BGM/SE のトラック分離。BGM は 1 系統、SE は最大 8 系統同時再生。
 - 低レイテンシ (< 50ms; セル塗 → "ぽちっ" SE、× → 別 SE、クリア → 完成 SE)。
-- ファイルフォーマットは Ogg Vorbis (主) + Mp4/AAC (Safari 互換)。圧縮率優先で軽量化。
+- 現行実装: 音声ファイル ゼロ (WebAudio 自前合成)。元設計の Ogg/AAC は不採用。
 
 ## 12.2 構成
 
@@ -141,3 +147,57 @@ resumeBtn.addEventListener('pointerdown', () => {
 | AudioContext がタブ非アクティブで停止 | `visibilitychange` で suspend/resume + ゲーム自動再開はせず "TAP TO RESUME" 表示 (§12.3.2) |
 | バックグラウンド復帰で音ズレ | resume 後に Howler.mute(false) → ユーザー操作で再開 (§12.3.2) |
 | 多重 SE で歪む | プール上限 8、必要に応じて gain で混合 |
+
+## 12.11 BGM 実装 (β11.0-α / WebAudio 自前合成 chiptune)
+
+> Howler / 音源ファイル方針は不採用。bundle 0 KB を保ったまま BGM を提供するため、
+> WebAudio で chiptune アンビエントを直接合成する案 (案A) を採用 (Gemini Pro deep + review 同意)。
+
+### 楽曲仕様
+
+- 8 小節ループ ~24 秒 / 80 BPM
+- A マイナー pentatonic + Am Em Fmaj G コード進行
+- ベース (sine 低音 / Am→Em→Fmaj→G の root note 進行) + メロディ (triangle / pentatonic 上下動) + 5 度上の重なり
+- ローパスフィルター 2400Hz (集中時間延長 / 耳触り改善)
+
+### 再生方式 (重要: setTimeout NG)
+
+`setTimeout` での音符スケジュールはタブ非アクティブ時にスロットリングされてリズムが崩れるため、
+以下の堅牢な方式を採用 (Gemini Pro deep 指摘):
+
+1. `OfflineAudioContext` で 1 ループ分の `AudioBuffer` を事前合成
+2. `AudioBufferSourceNode.loop = true` で再生
+3. AudioContext は `synth.ts` (SE) と共有 (iOS Safari の AudioContext 生成上限回避)
+4. 古い iOS Safari のため `webkitOfflineAudioContext` フォールバック
+
+### モジュール構成
+
+```
+src/audio/bgm.ts          — BGM (build / start / stop / 音量 / mute)
+src/audio/synth.ts        — SE (β2.0-β) + AudioContext 共有 getter
+src/audio/store.ts        — Zustand (muted / bgmEnabled / bgmVolume)
+src/audio/mount.ts        — phase 'playing' で startBgm / それ以外で stopBgm
+```
+
+### UX (デフォルト OFF)
+
+- SettingsModal に「BGM (集中向けアンビエント)」チェック (デフォルト false)
+- 「BGM 音量」スライダー (`disabled when !bgmEnabled`)
+- 親 mute (`useAudio.setMuted`) は SE と BGM 両方に適用
+- `save.audio.bgmEnabled` を valibot で optional 追加 (後方互換)
+
+### 多重再生防止
+
+`startBgm()` は内部で既存 `currentSource` があれば必ず `stop() + disconnect()` してから新規生成。
+これがないと phase 遷移 (cleared → playing 等) で多重再生 → メモリリーク + 音割れの原因になる
+(Gemini Pro review 指摘)。
+
+### 連動ロジック (mount.ts)
+
+```ts
+phase === 'playing' && bgmEnabled  →  startBgm()
+phase !== 'playing'                 →  stopBgm()
+```
+
+paused / cleared / puzzle-select / tap-to-start / results すべてで停止。`muteOnBlur` 設定で
+バックグラウンド時も自動ミュート。
