@@ -73,8 +73,11 @@ for (const p of puzzles) {
   });
 }
 
+// 正しい namespace: sitemaps.org (複数形)。
+// 誤って "sitemap.org" を使うと Google Search Console が
+// 「サイトマップ または サイトマップ インデックス ファイルの ネームスペース宣言が不適切です」エラーを出す。
 const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemap.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls
   .map(
     (u) => `  <url>
