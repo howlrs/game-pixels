@@ -1,4 +1,3 @@
-// docs §14.1 game/: ゲームロジック (プレイヤー, 敵, アイテム, ワールド) — core 依存。
-
-export { physicsSystem } from './systems/physics.ts';
-export { renderSyncSystem, type SpriteRegistry } from './systems/render-sync.ts';
+// docs §14.1 game/: ゲームロジック (Zustand store)
+export { useGame } from './store.ts';
+export type { AppPhase, ClueMarkState, CursorPos, DragSession, GameStore, InputMode } from './store.ts';

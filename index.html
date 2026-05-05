@@ -72,12 +72,25 @@
         padding: 8px 12px;
         display: flex;
         justify-content: space-between;
+        align-items: center;
         font-family: monospace;
         font-size: 14px;
         color: #fff;
         text-shadow: 1px 1px 0 #000;
-        pointer-events: none;
+        gap: 12px;
+        z-index: 10;
       }
+      .hud-reset {
+        background: #333;
+        color: #fff;
+        border: 1px solid #666;
+        padding: 4px 12px;
+        font: inherit;
+        cursor: pointer;
+        min-height: 32px;
+        border-radius: 4px;
+      }
+      .hud-reset:hover { background: #444; }
       .gate {
         position: fixed;
         inset: 0;
@@ -90,12 +103,127 @@
         color: #fff;
         cursor: pointer;
         user-select: none;
+        z-index: 100;
       }
       .gate small {
         display: block;
         font-size: 12px;
         opacity: 0.6;
         margin-top: 8px;
+      }
+      /* パズル選択画面 */
+      .puzzle-select {
+        position: fixed;
+        inset: 0;
+        background: #1a1a1a;
+        color: #eee;
+        padding: 24px;
+        overflow: auto;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        z-index: 50;
+      }
+      .puzzle-select h1 { font-size: 24px; margin: 0 0 16px; }
+      .puzzle-select h2 { font-size: 18px; margin: 16px 0 8px; opacity: 0.8; }
+      .puzzle-select ul.puzzle-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
+      }
+      .puzzle-select button {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        padding: 12px 14px;
+        background: #2a2a2a;
+        color: #eee;
+        border: 1px solid #444;
+        border-radius: 8px;
+        font: inherit;
+        cursor: pointer;
+        min-height: 64px;
+        text-align: left;
+      }
+      .puzzle-select button:hover { background: #383838; }
+      .puzzle-select button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .puzzle-select button.unsupported { background: #333; }
+      .puzzle-select button strong { font-size: 16px; }
+      .puzzle-select button small { font-size: 12px; opacity: 0.7; }
+      .puzzle-select button em { font-size: 11px; color: #ffaa55; font-style: normal; }
+      .puzzle-select.error { color: #ff7777; padding: 24px; }
+      /* モード切替ボタン */
+      .mode-buttons {
+        position: fixed;
+        bottom: max(16px, var(--safe-bottom));
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 8px;
+        z-index: 10;
+      }
+      .mode-btn {
+        min-width: 56px;
+        min-height: 56px;
+        padding: 8px;
+        font-size: 28px;
+        background: #2a2a2a;
+        color: #eee;
+        border: 2px solid #555;
+        border-radius: 8px;
+        cursor: pointer;
+        font-family: monospace;
+      }
+      .mode-btn.active {
+        background: #ffcc00;
+        color: #000;
+        border-color: #ffaa00;
+      }
+      .mode-btn:hover { background: #444; }
+      .mode-btn.active:hover { background: #ffd633; }
+      /* クリア演出 */
+      .clear-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 90;
+        animation: fade-in 0.5s ease-out;
+      }
+      @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+      .clear-card {
+        background: #2a2a2a;
+        color: #eee;
+        padding: 32px;
+        border-radius: 12px;
+        text-align: center;
+        max-width: 320px;
+      }
+      .clear-card h2 {
+        color: #ffcc00;
+        font-size: 32px;
+        margin: 0 0 16px;
+      }
+      .clear-card button.primary {
+        background: #ffcc00;
+        color: #000;
+        border: none;
+        padding: 12px 24px;
+        font: inherit;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        border-radius: 8px;
+        margin-top: 16px;
+        min-height: 44px;
+      }
+      .clear-card button.primary:hover { background: #ffd633; }
+      @media (prefers-reduced-motion: reduce) {
+        .clear-overlay { animation: none; }
       }
     </style>
   </head>
