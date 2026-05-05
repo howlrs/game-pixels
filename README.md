@@ -27,15 +27,17 @@ bun run preview  # production build を local で配信 (https://127.0.0.1:4173)
 
 ## ハイライト
 
-- **ジャンル**: 汎用ノノグラム (ピクチャーロジック)、5×5 / 10×10 / 15×15 の盤面 ([`docs/10_overview.md`](docs/10_overview.md))
+- **ジャンル**: 汎用ノノグラム (ピクチャーロジック)、5×5 / 10×10 / 15×15 / 25×25 の盤面 ([`docs/10_overview.md`](docs/10_overview.md))
 - **盤面モデル**: 三値セル (空 / 塗 / ×)、形状で区別 ([`docs/20_grid-model.md`](docs/20_grid-model.md))
 - **ヒント**: パズル JSON に事前計算済の行/列ヒント配列を埋め込み (run-length encoding、[`docs/30_hints.md`](docs/30_hints.md))
-- **入力**: Mouse (PC) / Keyboard / Touch (スマホ + モード切替ボタン)、Undo なし、消しゴム + 全リセットで代替 ([`docs/90_input.md`](docs/90_input.md))
-- **描画**: 内部解像度オートフィット、**WebGPU 既定** → WebGL2 → Canvas2D で段階縮退 ([`docs/91_rendering.md`](docs/91_rendering.md))
+- **入力**: Mouse (PC) / Keyboard / Touch (スマホ + モード切替ボタン)、Undo/Redo (Cmd/Ctrl+Z/Y, β5.0)、ズーム+パン UI (Pinch / Wheel / HUD ボタン, β10.0) ([`docs/90_input.md`](docs/90_input.md))
+- **描画**: 内部解像度動的化 (5×5: 480 / 10×10: 600 / 15×15: 720 / 25×25: 1000)、**WebGPU 既定** → WebGL2 → Canvas2D で段階縮退 ([`docs/91_rendering.md`](docs/91_rendering.md))
+- **音声**: WebAudio 自前合成 (SE: synth.ts, BGM: bgm.ts / chiptune アンビエント, β11.0) — bundle 0 KB / PWA オフライン保持 ([`docs/92_audio.md`](docs/92_audio.md))
 - **アーキ**: Zustand 中心 (bitECS 不採用、Round 6 で削除) / Valibot Schema-first ([`docs/94_architecture.md`](docs/94_architecture.md))
-- **セーブ**: LocalStorage + debounce、進行盤面 + ベストタイム ([`docs/93_state-save.md`](docs/93_state-save.md))
-- a11y: DOM 部分のみ ARIA + キーボード対応、Canvas 内 a11y は v1.1 ([`docs/96_accessibility.md`](docs/96_accessibility.md))
-- クロスデバイス: スマホは ≤10×10、PC+タブレットは ≤15×15、タッチ ≥44×44px ([`docs/97_responsive-crossdevice.md`](docs/97_responsive-crossdevice.md))
+- **セーブ**: LocalStorage + debounce、進行盤面 + Undo/Redo 履歴 + ベストタイム ([`docs/93_state-save.md`](docs/93_state-save.md))
+- **a11y**: ARIA + キーボード操作 + reduce-motion (β3.0) + ハイコントラスト (β4.0) + WCAG AAA 対応 ([`docs/96_accessibility.md`](docs/96_accessibility.md))
+- **クロスデバイス**: スマホは ≤10×10、PC+タブレットは 25×25 まで、タッチ ≥44×44px / β10.0 でズーム+パン UI 追加 ([`docs/97_responsive-crossdevice.md`](docs/97_responsive-crossdevice.md))
+- **パズル QA**: 自動生成・既存問わず一意性 / 論理可解性 / 可視性 / 対称性を CI で強制 ([`docs/QA_SUITE.md`](docs/QA_SUITE.md))
 
 ## ドキュメント目次
 
@@ -49,10 +51,20 @@ bun run preview  # production build を local で配信 (https://127.0.0.1:4173)
 
 ### バージョン (Round 5 ジャンル転換時に旧タグを全削除)
 
-| Tag | 状態 |
+| Tag | 内容 |
 |---|---|
-| `v0.6.0-pixels-spec` | Round 5 = ピクセルズ仕様確定 (本 Round で作成、docs 全面書き直し) |
-| (未付与) | Round 6 = 旧コード削除 + ピクセルズ MVP 実装 (予定: `v0.7.0-pixels-mvp`) |
+| `v0.6.0-pixels-spec` | Round 5 = ピクセルズ仕様確定 (docs 全面書き直し) |
+| `round1` 〜 `round7` | Round 6/7 = 旧コード削除 + MVP 実装 + パズル QA 整備 |
+| `β2.0` | HUD レイアウト分離 / 音声 SE / 共有 / 設定モーダル |
+| `β3.0` | ライン完了表示 / reduce-motion / 進捗% |
+| `β4.0` | ヘルプモーダル / ハイコントラスト |
+| `β5.0` | Undo / Redo (Cmd/Ctrl+Z/Y) |
+| `β6.0` | 動的 canvas 解像度 / クリアマーク復元 |
+| `β7.0` | 一時停止 (visibility 自動 paused) |
+| `β8.0` | Undo/Redo 履歴を autoSave に統合 + autoSave バグ修正 |
+| `β9.0` | 画像→パズル変換パイプ (sharp 導入) |
+| `β10.0` | ズーム+パン UI (Pinch / Wheel / HUD ボタン) |
+| `β11.0` | BGM (WebAudio 自前合成 / chiptune アンビエント) |
 
 > **旧プラットフォーマー仕様のタグ** (`v0.1.0-draft` / `v0.2.0-docs-round1` / `v0.3.0-docs-round2` / `v0.4.0-skeleton` / `v0.5.0-mvp-alpha`) は Round 5 ジャンル転換時に削除済 (混乱回避)。git 履歴は残るので必要なら `git log` で参照可能。
 

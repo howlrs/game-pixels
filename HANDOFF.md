@@ -1,102 +1,99 @@
-# HANDOFF (2026-05-05、Round 5 ジャンル転換版)
+# HANDOFF (2026-05-06、β11.0 リリース時点)
 
-ピクセルズ (汎用ノノグラム / ピクチャーロジック Web アプリ) の事前調査セッション引き継ぎ資料。
-
-## ジャンル転換について
-
-旧仕様 (Round 1〜4) は 2D サイドスクロール プラットフォーマー (旧コード名: マリオピクセル) として MVP α (旧タグ v0.5.0-mvp-alpha) まで完成していたが、Round 5 でユーザー要望によりジャンルを **汎用ノノグラム** に全面転換。任天堂 IP は使用しない。
-
-新コードネーム: **ピクセルズ** (`pixels`)。GitHub リポ名は `game-pixels` のまま。
-旧プラットフォーマー仕様の全タグ (v0.1〜v0.5) は Round 5 で削除済 (混乱回避)。
+ピクセルズ (汎用ノノグラム / ピクチャーロジック Web アプリ) の引き継ぎ資料。
 
 ## 現在の状態
 
 - リポジトリ: https://github.com/howlrs/game-pixels
-- ローカル: `/home/o9oem/workspace/mine/temp/mario-pixel` (Round 6 で `game-pixels/` にリネーム予定)
-- ブランチ: `main` + `docs/round5/pixels-spec` (本 Round の作業ブランチ)
-- タグ: (旧タグ全削除済、Round 5 完了で `v0.6.0-pixels-spec` 付与予定)
+- ローカル: `/home/o9oem/workspace/mine/temp/mario-pixel` (旧名のまま、リネームは保留)
+- ブランチ: `main` (working tree clean)
+- 最新タグ: `β11.0` (BGM 実装)
 - ライセンス: MIT
 - 公開アカウント: howlrs (sharebook.amazon@gmail.com)
 
-## Round 5 で完了済 (本セッション)
+## ジャンル転換について
 
-1. **仕様調査** — ノノグラム標準仕様 12 論点を Web + Gemini Pro deep で整理
-2. **独立妥当性検証** — Gemini Pro deep で 12 論点を再評価、致命指摘 2 + 軽微 4 を反映して MVP final 仕様確定
-3. **旧タグ全削除** — v0.1.0-draft / v0.2.0-docs-round1 / v0.3.0-docs-round2 / v0.4.0-skeleton / v0.5.0-mvp-alpha を local + remote から削除
-4. **コード内マリオ表記置換** — package.json / index.html / vite.config.ts / src/ui/TapToStartGate.tsx / src/render/mount.ts / scripts/*.mjs
-5. **docs 全面書き直し** — 19 章のうちジャンル特有 9 章 (§20/§30/§40/§50/§60/§70/§80/§90/§95) を全置換 + 残り章のマリオ表記除去 + 用語集 (§00_glossary.md) 新設
-6. **Round 5 Issue 起票** — #29
-7. **SurrealDB 記録** — output_log (調査結果) + review_log (独立検証)
+旧仕様 (Round 1〜4) は 2D サイドスクロール プラットフォーマー (旧コード名: マリオピクセル) として MVP α (旧タグ v0.5.0-mvp-alpha) まで完成していたが、Round 5 でジャンルを **汎用ノノグラム** に全面転換 (任天堂 IP は使用しない)。新コードネーム: **ピクセルズ** (`pixels`)。GitHub リポ名は `game-pixels` のまま。旧プラットフォーマー仕様の全タグ (v0.1〜v0.5) は Round 5 で削除済 (混乱回避)。
+
+## バージョン履歴
+
+| Tag | 内容 |
+|---|---|
+| `v0.6.0-pixels-spec` | Round 5 = 仕様確定 (docs 全面書き直し) |
+| `round1` 〜 `round7` | Round 6/7 = 旧コード削除 + MVP 実装 + パズル QA 整備 |
+| `β2.0` | HUD レイアウト分離 / SE / 共有 / 設定モーダル |
+| `β3.0` | ライン完了表示 / reduce-motion / 進捗% |
+| `β4.0` | ヘルプモーダル / ハイコントラスト |
+| `β5.0` | Undo / Redo |
+| `β6.0` | 動的 canvas 解像度 / クリアマーク復元 |
+| `β7.0` | 一時停止 (visibility 自動 paused) |
+| `β8.0` | Undo/Redo 履歴を autoSave に統合 + autoSave バグ修正 |
+| `β9.0` | 画像→パズル変換パイプ (sharp 導入) |
+| `β10.0` | ズーム+パン UI |
+| `β11.0` | BGM (WebAudio 自前合成 / chiptune アンビエント) |
+
+## 累積成果 (β2.0 → β11.0)
+
+- 21 PRs 自動マージ / 11 タグリリース
+- 50+ Gemini Pro review items 反映
+- パズル 21 件全 unique + logically solvable (5×5: 3, 10×10: 8, 15×15: 7, 25×25: 3)
+- bundle precache ~716 KiB (BGM はコード生成で +5 KiB のみ)
+
+## アーキテクチャ概要
+
+```
+src/
+  audio/       — synth.ts (SE), bgm.ts (β11.0 chiptune BGM), store, mount
+  core/        — board, save (Valibot), puzzle ロード
+  game/        — Zustand store (board / marks / cursor / drag / history / viewport)
+  input/       — grid-input.ts (Mouse/Touch/Keyboard/Wheel/ピンチ)
+  platform/    — モバイル判定, body 属性 (reduceMotion / highContrast)
+  qa/          — line-solver / board-solver / metrics (CI で全パズル検証)
+  render/      — Pixi.js v8 mount + grid (bgRoot/boardRoot 分離 / viewport 適用)
+  save/        — auto-save (debounce + visibility flush)
+  ui/          — App, Hud, PuzzleSelect, SettingsModal, HelpModal, ResultsPage,
+                 ClearBanner, ResumeGate, TapToStartGate, GameView, ModeButtons
+```
+
+## CI / 品質
+
+- `.github/workflows/ci.yml`: build-test + validate-puzzles の 2 ジョブ (timeout 5 min)
+- `bun run validate-puzzles`: 全パズルを QA で検証 (一意性 + 論理可解性 + 可視性 + 対称性)
+- `bun scripts/build-puzzles.mjs`: `.grid` (ASCII art) → `.json` 自動生成
+- `bun scripts/build-index.mjs`: index.json 自動生成
+- 上記の差分が無いか CI で diff チェック
+
+## 開発ワークフロー (継続中の規律)
+
+1. ユーザー指示 / `<<autonomous-loop-dynamic>>` で各 PR 着手
+2. 設計時に Gemini Pro deep でレビュー (`~/.claude/hooks/gemini-review.sh deep --pro`)
+3. 実装 → typecheck + test + build + smoke (Playwright) で検証
+4. CSS 変更を伴う場合は Gemini Pro review 必須 (memory: feedback_css_gemini_review.md)
+5. PR 作成 → CI 通過 → squash merge (branch 自動削除)
+6. 区切りで annotated タグ + GitHub Release (prerelease)
+7. SurrealDB output_log に記録 (tags: pixels + beta番号 + topic)
 
 ## 次セッションの開始手順
 
 ```bash
-cd /home/o9oem/workspace/mine/temp/mario-pixel  # Round 6 でリネーム後は game-pixels/
+cd /home/o9oem/workspace/mine/temp/mario-pixel
 git checkout main && git pull --ff-only
-git tag -l                       # v0.6.0-pixels-spec まで確認
-gh issue list --state open       # 未着手 Issue 一覧 (Round 6 用に新 Issue 起票予定)
-```
+git tag -l 'β*'                  # β11.1 (本資料更新タグ) まで確認
+gh pr list --state open          # 未マージ PR 確認
 
-過去知見の呼び戻し:
-```bash
+# 過去知見の呼び戻し
 /home/o9oem/workspace/surreal-query.sh --knowledge-search --tags "pixels,nonogram" --limit 10 --preview-only
-/home/o9oem/workspace/surreal-query.sh "SELECT title, output_type, tags, created_at FROM output_log WHERE tags CONTAINSANY ['pixels','nonogram','round5'] ORDER BY created_at DESC LIMIT 10"
-/home/o9oem/workspace/surreal-query.sh "SELECT review_mode, model, target, tags, created_at FROM review_log WHERE tags CONTAINSANY ['pixels','nonogram','round5'] ORDER BY created_at DESC LIMIT 20"
+/home/o9oem/workspace/surreal-query.sh "SELECT title, output_type, tags, created_at FROM output_log WHERE tags CONTAINSANY ['pixels','beta10','beta11'] ORDER BY created_at DESC LIMIT 10"
 ```
 
-## 次にやるべきこと (Round 6 = 実装転換)
+## 次フェーズ候補 (β12.0)
 
-1. **旧コード削除** — Round 6 ブランチで:
-   - src/core/world.ts (bitECS) / src/core/loop.ts (固定タイムステップ) / src/core/coords.ts (subpixel) / src/core/physics/ 全部 / src/core/input/ (旧物理操作部分)
-   - src/game/systems/ 全部 (physics / render-sync 等の物理システム)
-   - public/stages/1-1.json (旧プラットフォーマーステージ)
-   - 関連テストファイル
-2. **ピクセルズ MVP 実装**:
-   - src/core/board.ts (盤面モデル §20)
-   - src/core/clue.ts (ヒント生成 §30)
-   - src/game/store.ts (Zustand store §94.2.1)
-   - src/render/grid.ts (盤面描画 §91)
-   - src/input/mouse.ts / touch.ts / keyboard.ts (入力 §90)
-   - src/save/local-storage.ts (LocalStorage §93)
-   - src/ui/PuzzleSelect.tsx / Hud.tsx / ModeButtons.tsx (React UI)
-3. **パズル 20 個生成** — `scripts/generate-puzzles.mjs` で 5×5 / 10×10 / 15×15 を生成、解の一意性検証
-4. **ローカルディレクトリリネーム** — `mario-pixel/` → `game-pixels/` (`git mv` で履歴維持)
-5. **タグ付与** — Round 6 完了で `v0.7.0-pixels-mvp`
-
-## ブランチ運用ルール (継続)
-
-- 各 Issue ごとに `docs/<topic>` または `feat/<topic>` のトピックブランチ
-- PR で main に merge (squash, branch 自動削除)
-- main タグは `vX.Y.Z-<phase>` 形式
-- Gemini レビュー (`~/.claude/hooks/gemini-review.sh`) を Issue 起票前 / PR 前に必須通過
-- `^/~` 禁止、依存追加は `bun add <pkg>@<version>` で絶対指定
-- `bun.lock` (Bun 1.3+ の text 形式) を Git 管理
-
-## MVP 仕様 (12 論点 final、Round 5 で確定)
-
-| # | 論点 | 確定仕様 |
-|---|---|---|
-| 1 | セル状態 | 三値 (空 / 塗 / ×) + 形状区別 |
-| 2 | ヒント | パズル JSON に事前計算済の行/列ヒント配列を埋め込み |
-| 3 | 解の一意性 | パズル生成時にツール側で保証 |
-| 4 | ペナルティ | MVP はなし、経過時間表示のみ |
-| 5 | ヒント補助 | 手動マーク (タップで取り消し線) |
-| 6 | 入力 | PC: 左塗/右× / スマホ: モード切替ボタン / Undo なし |
-| 7 | 盤面サイズ | スマホ 5×5〜10×10、PC+タブレット 5×5〜15×15 |
-| 8 | データ形式 | JSON (2D 配列 + ヒント事前計算済 + メタ) |
-| 9 | セーブ | LocalStorage + debounce |
-| 10 | 演出 | 塗りは即時、クリア時は塗られたセルが色変化アニメ |
-| 11 | a11y | DOM のみ ARIA + キーボード対応、Canvas 内 a11y は v1.1 |
-| 12 | クロスデバイス | レスポンシブ、スマホ ≤10×10、タッチ ≥44×44px |
-
-## 未決事項
-
-`docs/99_open-questions.md` の §19.1 を参照:
-- パズル 20 個の絵柄
-- BGM 1 種類のみ MVP
-- i18n は日本語のみ MVP
-- iOS Safari 7 日無アクセス削除
-- Hard モード / UGC / Canvas a11y / Undo / 自動グレーアウト / 大盤面 / カラー — 全て v1.1+
+| 候補 | Gemini 評価 | 備考 |
+|------|------------|------|
+| テーマ複数選択 (季節 / カラーパレット) | 価値3 / コスト3 / リスク1 | UX 改善 |
+| 真画像素材で新パズル | 価値4 / コスト5 / リスク5 | image-to-puzzle で写真ベース |
+| 多言語対応 (i18n) | 価値4 / コスト3 / リスク2 | i18next 既に依存 |
+| BGM 2 曲目以降 | 価値2 / コスト1 / リスク1 | 難度別 / カテゴリ別 |
 
 ## 環境メモ
 
@@ -107,4 +104,39 @@ gh issue list --state open       # 未着手 Issue 一覧 (Round 6 用に新 Iss
   - flash-lite (qa, review): 軽量レビュー
   - pro (deep, --pro): 深掘り討議
   - issue: Issue 起票前レビュー
-- 旧プラットフォーマー仕様の参照は git log で可能 (`git log --all --grep "マリオピクセル"`)
+- 旧プラットフォーマー仕様は git log で参照可能 (`git log --all --grep "マリオピクセル"`)
+
+## ブランチ運用ルール (継続)
+
+- 各 PR ごとに `feat/<topic>` または `docs/<topic>` のトピックブランチ
+- PR で main に squash merge + branch 自動削除
+- main タグは `βX.Y[.Z]` 形式 (β11.0 / β11.1 等)
+- Gemini レビュー必須通過 (Issue 起票前 / 設計時 / PR 前)
+- `^/~` 禁止、依存追加は `bun add <pkg>@<version>` で絶対指定
+- `bun.lock` (Bun 1.3+ の text 形式) を Git 管理
+
+## MVP 仕様 (12 論点 final、Round 5 で確定)
+
+| # | 論点 | 確定仕様 |
+|---|---|---|
+| 1 | セル状態 | 三値 (空 / 塗 / ×) + 形状区別 |
+| 2 | ヒント | パズル JSON に事前計算済の行/列ヒント配列を埋め込み |
+| 3 | 解の一意性 | パズル生成時にツール側で保証 + CI 強制 |
+| 4 | ペナルティ | MVP はなし、経過時間表示のみ |
+| 5 | ヒント補助 | 手動マーク (タップで取り消し線) |
+| 6 | 入力 | PC: 左塗/右× / スマホ: モード切替ボタン / Undo+Redo (β5.0 で追加) |
+| 7 | 盤面サイズ | 5×5 / 10×10 / 15×15 / 25×25 (25×25 はズーム+パン UI 推奨) |
+| 8 | データ形式 | JSON (2D 配列 + ヒント事前計算済 + メタ) |
+| 9 | セーブ | LocalStorage + debounce + Undo/Redo 履歴統合 (β8.0) |
+| 10 | 演出 | 塗りは即時、クリア時は塗られたセルが波状回転アニメ |
+| 11 | a11y | DOM ARIA + キーボード操作 + reduceMotion + highContrast (WCAG AAA) |
+| 12 | クロスデバイス | レスポンシブ + ズーム+パン UI (β10.0) |
+
+## 解決済 (元・未決事項)
+
+`docs/99_open-questions.md` に記載されていた未決事項のうち以下は解決:
+- BGM → β11.0 で WebAudio 自前合成 chiptune アンビエント実装
+- パズル絵柄 → 21 件 (5×5: 3, 10×10: 8, 15×15: 7, 25×25: 3) 全 unique + logically solvable
+- 25×25 への対応 → β10.0 ズーム+パン UI で達成
+
+未解決の主項目: i18n / Hard モード / UGC / Canvas a11y / 自動グレーアウト
