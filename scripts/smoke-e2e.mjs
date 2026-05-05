@@ -1,5 +1,7 @@
-// Step B: bitECS world + 固定タイムステップループの動作確認。
-// 2 体のボックスが落下/反射し、フレーム間で座標が変化することを Playwright で確認。
+// Step C: 入力 + プレイヤー物理の動作確認。
+// 1. Tap to Start でゲーム開始 → プレイヤー (青いボックス) が静止して床にいる
+// 2. ArrowRight を押し続ける → スクリーンショット差分で右移動を確認
+// 3. Space (ジャンプ) を押す → スクリーンショット差分で上下移動を確認
 
 import { chromium } from 'playwright';
 
@@ -19,40 +21,60 @@ try {
   await gate.dispatchEvent('pointerdown');
   await page.waitForSelector('.hud', { timeout: 5000 });
 
-  // ボックスの座標変化を確認するため、Pixi.js の stage を window 経由で公開していないので
-  // 代わりに 2 枚のスクリーンショットを撮って差分が出ることを確認する。
-  await page.waitForTimeout(200);
-  const shot1 = await page.locator('.canvas-container > canvas').screenshot();
-  await page.waitForTimeout(400);
-  const shot2 = await page.locator('.canvas-container > canvas').screenshot();
-  const sameSize = shot1.length === shot2.length;
-  // 完全一致でなければ動いている (バイト単位で一致しないことを確認)
-  let diff = 0;
-  const limit = Math.min(shot1.length, shot2.length);
-  for (let i = 0; i < limit; i++) if (shot1[i] !== shot2[i]) diff++;
-
+  // 落ち着くまで待つ (床に着地)
   await page.waitForTimeout(500);
+  const idle = await page.locator('.canvas-container > canvas').screenshot();
+
+  // 右移動: ArrowRight を 600ms 押し続ける
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(600);
+  const moving = await page.locator('.canvas-container > canvas').screenshot();
+  await page.keyboard.up('ArrowRight');
+
+  // 静止待ち (摩擦で停止)
+  await page.waitForTimeout(800);
+  const settled = await page.locator('.canvas-container > canvas').screenshot();
+
+  // ジャンプ: Space を一瞬押す → 0.2s 後にスクショ
+  await page.keyboard.down('Space');
+  await page.waitForTimeout(120);
+  await page.keyboard.up('Space');
+  const jumping = await page.locator('.canvas-container > canvas').screenshot();
+
+  // 着地まで待つ
+  await page.waitForTimeout(800);
+  const landed = await page.locator('.canvas-container > canvas').screenshot();
+
+  function diffRatio(a, b) {
+    const len = Math.min(a.length, b.length);
+    let d = 0;
+    for (let i = 0; i < len; i++) if (a[i] !== b[i]) d++;
+    return { ratio: len ? d / len : 0, bytes: d, total: len };
+  }
+
+  const idleVsMoving = diffRatio(idle, moving);
+  const idleVsSettled = diffRatio(idle, settled);
+  const settledVsJumping = diffRatio(settled, jumping);
+  const settledVsLanded = diffRatio(settled, landed);
+
   const fpsText = await page.$eval('.hud', (el) => {
     const m = el.innerText.match(/FPS\s+(\d+)/);
-    return m ? m[1] : null;
-  });
-  const timerText = await page.$eval('.hud', (el) => {
-    const m = el.innerText.match(/TIME\s+(\d+)/);
     return m ? m[1] : null;
   });
 
   const result = {
     ok: true,
-    canvasMoving: { sameSize, diffBytes: diff, totalBytes: limit, diffRatio: limit ? diff / limit : 0 },
-    fpsAfter1100ms: fpsText,
-    timerAfter1100ms: timerText,
+    idleVsMoving,           // 大: 右移動した
+    idleVsSettled,          // 小: 移動後ほぼ同じ位置に戻った...わけではないが、停止点との比較
+    settledVsJumping,       // 大: ジャンプで上下動
+    settledVsLanded,        // 小: 着地したのでほぼ元と同じ
+    fps: fpsText,
     errors: consoleMessages.filter((m) => m.type === 'error' || m.type === 'pageerror'),
   };
-
   console.log(JSON.stringify(result, null, 2));
 
-  await page.screenshot({ path: '/tmp/mario-pixel-step-b.png', fullPage: false });
-  console.error('[smoke-e2e] screenshot saved to /tmp/mario-pixel-step-b.png');
+  await page.screenshot({ path: '/tmp/mario-pixel-step-c.png', fullPage: false });
+  console.error('[smoke-e2e] screenshot saved to /tmp/mario-pixel-step-c.png');
 } finally {
   await browser.close();
 }
