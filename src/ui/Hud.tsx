@@ -15,7 +15,8 @@ export function Hud() {
   const puzzle = useGame((s) => s.currentPuzzle);
   const reset = useGame((s) => s.resetBoard);
 
-  if (phase === 'tap-to-start' || phase === 'puzzle-select') return null;
+  // Round 7-B: cleared 中は HUD を非表示にして ClearBanner / セル回転アニメに集中させる
+  if (phase === 'tap-to-start' || phase === 'puzzle-select' || phase === 'cleared') return null;
 
   return (
     <div className="hud" role="status" aria-live="polite">
