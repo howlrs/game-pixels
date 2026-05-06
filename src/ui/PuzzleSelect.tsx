@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { formatTime, loadPuzzle, loadPuzzleIndex, type PuzzleIndex, type PuzzleMeta } from '@core/index.ts';
 import { useGame } from '@game/index.ts';
 import { getSavedData } from '@save/index.ts';
+import { Footer } from './Footer.tsx';
 
 interface Props {
   onLoaded: () => void;
@@ -90,6 +91,7 @@ export function PuzzleSelect({ onLoaded }: Props) {
           クリア {clearedCount} / {totalCount}
         </small>
       </h1>
+      {/* index.categoryOrder ループは下で展開、最後にフッターを配置 */}
       {index.categoryOrder.map((cat) => {
         const inCat = index.puzzles.filter((p) => p.category === cat);
         if (inCat.length === 0) return null;
@@ -144,6 +146,7 @@ export function PuzzleSelect({ onLoaded }: Props) {
           </section>
         );
       })}
+      <Footer />
     </div>
   );
 }

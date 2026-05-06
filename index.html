@@ -638,6 +638,55 @@
           gap: 10px;
         }
       }
+      /* PuzzleSelect 末尾の控えめなフッター (copyright + 法務リンク) */
+      .app-footer {
+        margin-top: 32px;
+        padding: 20px 0 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        text-align: center;
+        color: #ccc;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      .app-footer-links {
+        list-style: none;
+        margin: 0 0 12px;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px 20px;
+        font-size: 13px;
+      }
+      .app-footer-link {
+        color: inherit;
+        text-decoration: none;
+        opacity: 0.75;
+        transition: opacity 0.15s ease;
+      }
+      .app-footer-link:hover {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        opacity: 1;
+      }
+      .app-footer-link:focus-visible {
+        outline: 2px solid #ffcc00;
+        outline-offset: 2px;
+        border-radius: 2px;
+      }
+      .app-footer-copyright {
+        display: block;
+        font-size: 11px;
+        opacity: 0.55;
+        letter-spacing: 0.02em;
+      }
+      /* ハイコントラスト対応 */
+      body[data-high-contrast='true'] .app-footer {
+        border-top-color: #fff;
+        color: #fff;
+      }
+      body[data-high-contrast='true'] .app-footer-link {
+        opacity: 1;
+      }
       /* 結果ページ (Round 7-A: 総評 / 他パズル / 次レベル誘導) */
       .results-page {
         position: fixed;
