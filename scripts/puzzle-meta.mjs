@@ -6,7 +6,7 @@ export const SIZE_ORDER = ['5x5', '10x10', '15x15', '25x25'];
 
 // カテゴリ内の表示順 (難易度・好みで人手調整)
 export const ID_ORDER = {
-  '5x5': ['heart', 'diamond', 'cross', 'arrow-up', 'smile', 'star-mini', 'triangle-up', 'key', 'bolt', 'letter-x', 'square', 'note'],
+  '5x5': ['heart', 'diamond', 'cross', 'arrow-up', 'smile', 'star-mini', 'triangle-up', 'key', 'bolt', 'letter-x', 'square', 'note', 'sun', 'cloud', 'umbrella-mini', 'fish-mini', 'leaf'],
   '10x10': ['cat', 'house', 'star', 'mushroom', 'heart-big', 'umbrella', 'rocket', 'tree', 'apple-mini', 'car', 'flower', 'cup', 'moon', 'bird', 'clock'],
   '15x15': ['apple', 'rabbit', 'fish', 'giraffe', 'elephant', 'crab', 'snail', 'train', 'cake', 'penguin', 'boat', 'panda', 'guitar'],
   '25x25': ['butterfly', 'castle', 'dragon', 'lighthouse', 'whale', 'phoenix', 'mountain', 'lion', 'train-big', 'unicorn', 'tree-big'],
@@ -27,6 +27,11 @@ export const META = {
   'letter-x': { title: 'ばつ', difficulty: 'easy', description: 'X 印' },
   square: { title: 'しかく', difficulty: 'easy', description: '四角フレーム' },
   note: { title: 'おんぷ', difficulty: 'easy', description: '音符' },
+  sun: { title: 'たいよう', difficulty: 'easy', description: '太陽' },
+  cloud: { title: 'くも', difficulty: 'easy', description: '雲' },
+  'umbrella-mini': { title: 'かさ (小)', difficulty: 'easy', description: '小さな傘' },
+  'fish-mini': { title: 'さかな (小)', difficulty: 'easy', description: '小さな魚' },
+  leaf: { title: 'はっぱ', difficulty: 'easy', description: '葉' },
 
   // 10x10
   cat: { title: 'ねこ', difficulty: 'medium', description: '猫の顔' },
