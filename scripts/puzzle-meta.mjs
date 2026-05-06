@@ -1,21 +1,32 @@
 // Round 7-E / Gemini Pro deep 指摘 5: SIZES / META / ID_ORDER を単一ファイルに集約。
 // build-puzzles.mjs / build-index.mjs の双方から import される。
 
-export const SIZES = ['10x10', '15x15', '25x25'];
+export const SIZES = ['5x5', '10x10', '15x15', '25x25'];
 export const SIZE_ORDER = ['5x5', '10x10', '15x15', '25x25'];
 
 // カテゴリ内の表示順 (難易度・好みで人手調整)
 export const ID_ORDER = {
-  '5x5': ['heart', 'diamond', 'cross'],
-  '10x10': ['cat', 'house', 'star', 'mushroom', 'heart-big', 'umbrella', 'rocket', 'tree'],
-  '15x15': ['apple', 'rabbit', 'fish', 'giraffe', 'elephant', 'crab', 'snail'],
-  '25x25': ['butterfly', 'castle', 'dragon'],
+  '5x5': ['heart', 'diamond', 'cross', 'arrow-up', 'smile', 'star-mini', 'triangle-up', 'key', 'bolt', 'letter-x', 'square', 'note'],
+  '10x10': ['cat', 'house', 'star', 'mushroom', 'heart-big', 'umbrella', 'rocket', 'tree', 'apple-mini', 'car', 'flower', 'cup', 'moon', 'bird', 'clock'],
+  '15x15': ['apple', 'rabbit', 'fish', 'giraffe', 'elephant', 'crab', 'snail', 'train', 'cake', 'penguin', 'boat', 'panda', 'guitar'],
+  '25x25': ['butterfly', 'castle', 'dragon', 'lighthouse', 'whale', 'phoenix', 'mountain', 'lion', 'train-big', 'unicorn', 'tree-big'],
 };
 
 // id → メタ (build-puzzles.mjs の image-to-puzzle 起動引数として使用)
 export const META = {
-  // 5x5 (既存、build-puzzles では使わないが index 用に残す)
-  // (既に手動で生成済 + estimatedSolveSeconds が独自値のため META 対象外)
+  // 5x5
+  heart: { title: 'ハート', difficulty: 'easy', description: 'シンプルなハートマーク' },
+  diamond: { title: 'ダイヤ', difficulty: 'easy', description: 'ひし形 (ダイヤモンド)' },
+  cross: { title: 'プラス', difficulty: 'easy', description: 'プラス記号 (十字)' },
+  'arrow-up': { title: 'やじるし', difficulty: 'easy', description: '上向きの矢印' },
+  smile: { title: 'スマイル', difficulty: 'easy', description: 'にっこり顔' },
+  'star-mini': { title: 'ほし', difficulty: 'easy', description: '小さな星' },
+  'triangle-up': { title: 'さんかく', difficulty: 'easy', description: '上向きの三角形' },
+  key: { title: 'かぎ', difficulty: 'easy', description: '鍵' },
+  bolt: { title: 'いなずま', difficulty: 'easy', description: 'いなずまマーク' },
+  'letter-x': { title: 'ばつ', difficulty: 'easy', description: 'X 印' },
+  square: { title: 'しかく', difficulty: 'easy', description: '四角フレーム' },
+  note: { title: 'おんぷ', difficulty: 'easy', description: '音符' },
 
   // 10x10
   cat: { title: 'ねこ', difficulty: 'medium', description: '猫の顔' },
@@ -26,6 +37,13 @@ export const META = {
   umbrella: { title: 'かさ', difficulty: 'medium', description: '雨傘' },
   rocket: { title: 'ロケット', difficulty: 'medium', description: '上向きロケット' },
   tree: { title: 'き', difficulty: 'medium', description: '針葉樹' },
+  'apple-mini': { title: 'りんご (小)', difficulty: 'medium', description: '小さなりんご' },
+  car: { title: 'くるま', difficulty: 'medium', description: '横向きの車' },
+  flower: { title: 'はな', difficulty: 'medium', description: 'チューリップ' },
+  cup: { title: 'カップ', difficulty: 'medium', description: 'マグカップ' },
+  moon: { title: 'つき', difficulty: 'medium', description: '三日月' },
+  bird: { title: 'とり', difficulty: 'medium', description: '小鳥' },
+  clock: { title: 'とけい', difficulty: 'medium', description: '時計' },
   // 15x15
   elephant: { title: 'ぞう', difficulty: 'hard', description: 'ぞうの正面' },
   giraffe: { title: 'きりん', difficulty: 'hard', description: '首が長いキリン' },
@@ -34,13 +52,28 @@ export const META = {
   crab: { title: 'かに', difficulty: 'hard', description: 'はさみのあるかに' },
   apple: { title: 'りんご', difficulty: 'hard', description: 'りんご' },
   snail: { title: 'かたつむり', difficulty: 'hard', description: 'かたつむり' },
+  train: { title: 'でんしゃ', difficulty: 'hard', description: '蒸気機関車' },
+  cake: { title: 'ケーキ', difficulty: 'hard', description: 'ホールケーキ' },
+  penguin: { title: 'ペンギン', difficulty: 'hard', description: 'ペンギン' },
+  boat: { title: 'ふね', difficulty: 'hard', description: 'ヨット' },
+  panda: { title: 'パンダ', difficulty: 'hard', description: 'パンダの顔' },
+  guitar: { title: 'ギター', difficulty: 'hard', description: 'アコースティックギター' },
   // 25x25
   dragon: { title: 'ドラゴン', difficulty: 'hard', description: '伝説のドラゴン' },
   castle: { title: 'しろ', difficulty: 'hard', description: '王城のシルエット' },
   butterfly: { title: 'ちょう', difficulty: 'hard', description: '蝶 (左右対称)' },
+  lighthouse: { title: 'とうだい', difficulty: 'hard', description: '灯台' },
+  whale: { title: 'くじら', difficulty: 'hard', description: 'クジラ' },
+  phoenix: { title: 'ほうおう', difficulty: 'hard', description: '不死鳥' },
+  mountain: { title: 'やま', difficulty: 'hard', description: '富士山風の山' },
+  lion: { title: 'ライオン', difficulty: 'hard', description: 'たてがみのライオン' },
+  'train-big': { title: 'きしゃ', difficulty: 'hard', description: '大型蒸気機関車' },
+  unicorn: { title: 'ユニコーン', difficulty: 'hard', description: 'ユニコーン' },
+  'tree-big': { title: 'たいじゅ', difficulty: 'hard', description: '大樹' },
 };
 
 export function durationFor(size) {
+  if (size === '5x5') return 60;
   if (size === '10x10') return 600;
   if (size === '15x15') return 1200;
   if (size === '25x25') return 2400;

@@ -12,7 +12,7 @@
       "width": 5,
       "height": 5,
       "difficulty": "easy",
-      "estimatedSolveSeconds": 60,
+      "estimatedSolveSeconds": 150,
       "category": "5x5",
       "description": "シンプルなハートマーク"
     },
@@ -22,7 +22,7 @@
       "width": 5,
       "height": 5,
       "difficulty": "easy",
-      "estimatedSolveSeconds": 90,
+      "estimatedSolveSeconds": 150,
       "category": "5x5",
       "description": "ひし形 (ダイヤモンド)"
     },
@@ -32,9 +32,99 @@
       "width": 5,
       "height": 5,
       "difficulty": "easy",
-      "estimatedSolveSeconds": 60,
+      "estimatedSolveSeconds": 150,
       "category": "5x5",
       "description": "プラス記号 (十字)"
+    },
+    {
+      "id": "arrow-up",
+      "title": "やじるし",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "上向きの矢印"
+    },
+    {
+      "id": "smile",
+      "title": "スマイル",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "にっこり顔"
+    },
+    {
+      "id": "star-mini",
+      "title": "ほし",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "小さな星"
+    },
+    {
+      "id": "triangle-up",
+      "title": "さんかく",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "上向きの三角形"
+    },
+    {
+      "id": "key",
+      "title": "かぎ",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "鍵"
+    },
+    {
+      "id": "bolt",
+      "title": "いなずま",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "いなずまマーク"
+    },
+    {
+      "id": "letter-x",
+      "title": "ばつ",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "X 印"
+    },
+    {
+      "id": "square",
+      "title": "しかく",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "四角フレーム"
+    },
+    {
+      "id": "note",
+      "title": "おんぷ",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "音符"
     },
     {
       "id": "cat",
@@ -117,6 +207,76 @@
       "description": "針葉樹"
     },
     {
+      "id": "apple-mini",
+      "title": "りんご (小)",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "小さなりんご"
+    },
+    {
+      "id": "car",
+      "title": "くるま",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "横向きの車"
+    },
+    {
+      "id": "flower",
+      "title": "はな",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "チューリップ"
+    },
+    {
+      "id": "cup",
+      "title": "カップ",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "マグカップ"
+    },
+    {
+      "id": "moon",
+      "title": "つき",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "三日月"
+    },
+    {
+      "id": "bird",
+      "title": "とり",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "小鳥"
+    },
+    {
+      "id": "clock",
+      "title": "とけい",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "時計"
+    },
+    {
       "id": "apple",
       "title": "りんご",
       "width": 15,
@@ -187,6 +347,66 @@
       "description": "かたつむり"
     },
     {
+      "id": "train",
+      "title": "でんしゃ",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "蒸気機関車"
+    },
+    {
+      "id": "cake",
+      "title": "ケーキ",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "ホールケーキ"
+    },
+    {
+      "id": "penguin",
+      "title": "ペンギン",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "ペンギン"
+    },
+    {
+      "id": "boat",
+      "title": "ふね",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "ヨット"
+    },
+    {
+      "id": "panda",
+      "title": "パンダ",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "パンダの顔"
+    },
+    {
+      "id": "guitar",
+      "title": "ギター",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "アコースティックギター"
+    },
+    {
       "id": "butterfly",
       "title": "ちょう",
       "width": 25,
@@ -215,6 +435,86 @@
       "estimatedSolveSeconds": 3750,
       "category": "25x25",
       "description": "伝説のドラゴン"
+    },
+    {
+      "id": "lighthouse",
+      "title": "とうだい",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "灯台"
+    },
+    {
+      "id": "whale",
+      "title": "くじら",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "クジラ"
+    },
+    {
+      "id": "phoenix",
+      "title": "ほうおう",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "不死鳥"
+    },
+    {
+      "id": "mountain",
+      "title": "やま",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "富士山風の山"
+    },
+    {
+      "id": "lion",
+      "title": "ライオン",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "たてがみのライオン"
+    },
+    {
+      "id": "train-big",
+      "title": "きしゃ",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "大型蒸気機関車"
+    },
+    {
+      "id": "unicorn",
+      "title": "ユニコーン",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "ユニコーン"
+    },
+    {
+      "id": "tree-big",
+      "title": "たいじゅ",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "大樹"
     }
   ]
 }
