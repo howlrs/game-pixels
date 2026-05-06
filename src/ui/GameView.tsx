@@ -34,35 +34,51 @@ export function GameView({ onMounted }: Props) {
     let handle: GameHandle | null = null;
 
     // 2026-05-06: 2 フレーム待ってから WebGPU 初期化を走らせる。
-    // - 1 frame 目: DOM レイアウト確定
-    // - 2 frame 目: コンポジタが PuzzleSelect 等の旧 DOM を片付け終わるまで猶予
+    // 2026-05-08: 120Hz / 高 fps ディスプレイ対策 (ユーザー指摘)。
+    // rAF 2 段は 60Hz 端末で約 33ms の猶予になるが、120Hz では約 16ms に縮む。
+    // Round 7-A コンポジタバグ対策の猶予として不足する可能性があるため、
+    // ms ベースの setTimeout 50ms フォールバックを追加し、リフレッシュレート非依存の
+    // 最小遅延を確保する。
     let raf2 = 0;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let started = false;
+    const start = () => {
+      if (cancelled || started) return;
+      started = true;
+      mountPixi(container)
+        .then((h) => {
+          if (cancelled) {
+            h.destroy();
+            return;
+          }
+          handle = h;
+          handleRef.current = h;
+          onMountedRef.current?.(h);
+        })
+        .catch((e) => {
+          // モバイル実機で WebGPU/WebGL 初期化が失敗した場合の調査用ログ。
+          // 握り潰すと canvas が出ないだけで原因が見えなくなる。
+          console.error('[pixels] mountPixi failed:', e);
+        });
+    };
+    // 1) rAF 2 段で DOM レイアウト + ペイント完了を待つ
     const raf1 = requestAnimationFrame(() => {
       if (cancelled) return;
       raf2 = requestAnimationFrame(() => {
         if (cancelled) return;
-        mountPixi(container)
-          .then((h) => {
-            if (cancelled) {
-              h.destroy();
-              return;
-            }
-            handle = h;
-            handleRef.current = h;
-            onMountedRef.current?.(h);
-          })
-          .catch((e) => {
-            // モバイル実機で WebGPU/WebGL 初期化が失敗した場合の調査用ログ。
-            // 握り潰すと canvas が出ないだけで原因が見えなくなる。
-            console.error('[pixels] mountPixi failed:', e);
-          });
+        // 2) さらに ms ベースの遅延でリフレッシュレート差を吸収
+        timeoutId = setTimeout(start, 32);
       });
     });
+    // 3) 念のため上限 100ms で必ず start (rAF が止まるケースの保険)
+    const fallbackId = setTimeout(start, 100);
 
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf1);
       if (raf2) cancelAnimationFrame(raf2);
+      if (timeoutId) clearTimeout(timeoutId);
+      clearTimeout(fallbackId);
       handle?.destroy();
       handleRef.current = null;
     };

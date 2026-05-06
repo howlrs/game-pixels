@@ -119,8 +119,17 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
     observer.observe(document.body, { attributes: true, attributeFilter: ['data-high-contrast'] });
   }
 
-  // タイマー (rAF で経過時間を加算)
+  // タイマー (rAF で経過時間を加算)。
+  // 2026-05-08: 120Hz / 高 fps ディスプレイ対策 (ユーザー指摘)。
+  // 旧コードは app.ticker (rAF ベース) で毎フレーム tickTimer を呼んでいた。
+  // 60Hz では 16.6ms 間隔だが 120Hz 端末では 8.3ms 間隔となり、tickTimer の
+  // store set が 120 回/秒走り、subscribe コールバック数や React selector 評価が
+  // 倍増する。Round 7-A 系のコンポジタバグ顕在化や CPU/GPU 競合の遠因になりうる。
+  // 対策: 約 60Hz (16ms) を最小間隔として throttle。経過時間 (elapsedMs) は
+  // throttle で実時間が積算されるため計時精度には影響しない。
   let tickerStart: number | null = null;
+  let tickerAccumDt = 0;
+  const TICK_FLUSH_MS = 16; // ≈ 60Hz cap
   app.ticker.add(() => {
     const now = performance.now();
     if (tickerStart === null) {
@@ -129,7 +138,12 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
     }
     const dt = now - tickerStart;
     tickerStart = now;
-    useGame.getState().tickTimer(dt);
+    tickerAccumDt += dt;
+    if (tickerAccumDt >= TICK_FLUSH_MS) {
+      const flushed = tickerAccumDt;
+      tickerAccumDt = 0;
+      useGame.getState().tickTimer(flushed);
+    }
   });
 
   const rendererName =
