@@ -8,7 +8,7 @@ export const SIZE_ORDER = ['5x5', '10x10', '15x15', '25x25'];
 export const ID_ORDER = {
   '5x5': ['heart', 'diamond', 'cross', 'arrow-up', 'smile', 'star-mini', 'triangle-up', 'key', 'bolt', 'letter-x', 'square', 'note'],
   '10x10': ['cat', 'house', 'star', 'mushroom', 'heart-big', 'umbrella', 'rocket', 'tree', 'apple-mini', 'car', 'flower', 'cup', 'moon', 'bird', 'clock'],
-  '15x15': ['apple', 'rabbit', 'fish', 'giraffe', 'elephant', 'crab', 'snail'],
+  '15x15': ['apple', 'rabbit', 'fish', 'giraffe', 'elephant', 'crab', 'snail', 'train', 'cake', 'penguin', 'boat', 'panda', 'guitar'],
   '25x25': ['butterfly', 'castle', 'dragon'],
 };
 
@@ -52,6 +52,12 @@ export const META = {
   crab: { title: 'かに', difficulty: 'hard', description: 'はさみのあるかに' },
   apple: { title: 'りんご', difficulty: 'hard', description: 'りんご' },
   snail: { title: 'かたつむり', difficulty: 'hard', description: 'かたつむり' },
+  train: { title: 'でんしゃ', difficulty: 'hard', description: '蒸気機関車' },
+  cake: { title: 'ケーキ', difficulty: 'hard', description: 'ホールケーキ' },
+  penguin: { title: 'ペンギン', difficulty: 'hard', description: 'ペンギン' },
+  boat: { title: 'ふね', difficulty: 'hard', description: 'ヨット' },
+  panda: { title: 'パンダ', difficulty: 'hard', description: 'パンダの顔' },
+  guitar: { title: 'ギター', difficulty: 'hard', description: 'アコースティックギター' },
   // 25x25
   dragon: { title: 'ドラゴン', difficulty: 'hard', description: '伝説のドラゴン' },
   castle: { title: 'しろ', difficulty: 'hard', description: '王城のシルエット' },
