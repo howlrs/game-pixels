@@ -1,0 +1,84 @@
+{
+  "meta": {
+    "id": "note",
+    "title": "おんぷ",
+    "width": 5,
+    "height": 5,
+    "difficulty": "easy",
+    "estimatedSolveSeconds": 150,
+    "category": "5x5",
+    "description": "音符"
+  },
+  "solution": [
+    [
+      0,
+      0,
+      0,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      1,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      0
+    ]
+  ],
+  "rowClues": [
+    [
+      2
+    ],
+    [
+      2
+    ],
+    [
+      4
+    ],
+    [
+      4
+    ],
+    [
+      4
+    ]
+  ],
+  "colClues": [
+    [
+      2
+    ],
+    [
+      3
+    ],
+    [
+      3
+    ],
+    [
+      5
+    ],
+    [
+      3
+    ]
+  ],
+  "isUniqueSolution": true
+}

@@ -1,0 +1,88 @@
+{
+  "meta": {
+    "id": "star-mini",
+    "title": "ほし",
+    "width": 5,
+    "height": 5,
+    "difficulty": "easy",
+    "estimatedSolveSeconds": 150,
+    "category": "5x5",
+    "description": "小さな星"
+  },
+  "solution": [
+    [
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1
+    ]
+  ],
+  "rowClues": [
+    [
+      1
+    ],
+    [
+      5
+    ],
+    [
+      3
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      1
+    ]
+  ],
+  "colClues": [
+    [
+      1,
+      1
+    ],
+    [
+      3
+    ],
+    [
+      3
+    ],
+    [
+      3
+    ],
+    [
+      1,
+      1
+    ]
+  ],
+  "isUniqueSolution": true
+}

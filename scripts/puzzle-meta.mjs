@@ -6,7 +6,7 @@ export const SIZE_ORDER = ['5x5', '10x10', '15x15', '25x25'];
 
 // カテゴリ内の表示順 (難易度・好みで人手調整)
 export const ID_ORDER = {
-  '5x5': ['heart', 'diamond', 'cross'],
+  '5x5': ['heart', 'diamond', 'cross', 'arrow-up', 'smile', 'star-mini', 'triangle-up', 'key', 'bolt', 'letter-x', 'square', 'note'],
   '10x10': ['cat', 'house', 'star', 'mushroom', 'heart-big', 'umbrella', 'rocket', 'tree'],
   '15x15': ['apple', 'rabbit', 'fish', 'giraffe', 'elephant', 'crab', 'snail'],
   '25x25': ['butterfly', 'castle', 'dragon'],
@@ -18,6 +18,15 @@ export const META = {
   heart: { title: 'ハート', difficulty: 'easy', description: 'シンプルなハートマーク' },
   diamond: { title: 'ダイヤ', difficulty: 'easy', description: 'ひし形 (ダイヤモンド)' },
   cross: { title: 'プラス', difficulty: 'easy', description: 'プラス記号 (十字)' },
+  'arrow-up': { title: 'やじるし', difficulty: 'easy', description: '上向きの矢印' },
+  smile: { title: 'スマイル', difficulty: 'easy', description: 'にっこり顔' },
+  'star-mini': { title: 'ほし', difficulty: 'easy', description: '小さな星' },
+  'triangle-up': { title: 'さんかく', difficulty: 'easy', description: '上向きの三角形' },
+  key: { title: 'かぎ', difficulty: 'easy', description: '鍵' },
+  bolt: { title: 'いなずま', difficulty: 'easy', description: 'いなずまマーク' },
+  'letter-x': { title: 'ばつ', difficulty: 'easy', description: 'X 印' },
+  square: { title: 'しかく', difficulty: 'easy', description: '四角フレーム' },
+  note: { title: 'おんぷ', difficulty: 'easy', description: '音符' },
 
   // 10x10
   cat: { title: 'ねこ', difficulty: 'medium', description: '猫の顔' },
