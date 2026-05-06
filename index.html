@@ -84,17 +84,24 @@
     <script>window.__PIXELS_INITIAL_PATH__ = "/";</script>
 
     <!--
-      2026-05-07: 旧 Service Worker キャッシュキルスイッチ (Gemini Pro deep 合議)。
-      β12.0.2 までの SW がユーザー実機に残っていると、precache された旧 JS チャンクを
-      返し続けて canvas 内に旧 PuzzleSelect が張り付く / リロードでブラックアウトする
-      症状が報告された。各クライアントで 1 度だけ全 SW unregister + 全 caches.delete を
-      実行して強制再取得させる。localStorage で実行済フラグを管理し無限リロードを防ぐ。
-      新ビルドが届いた以降は pass-through (即 return) で常時オーバーヘッドなし。
+      2026-05-07 / 2026-05-08: 旧 Service Worker キャッシュキルスイッチ (Gemini Pro deep 合議)。
+      β12.0.0 / β12.0.1 までの sw.js は globPatterns に html を含み precache していたため、
+      旧 SW がユーザー実機に残ると新 HTML が永遠に届かない詰みパターンが発生する。
+      対策: 自爆 SW (dist/sw.js を Self-destructing SW で上書き) と HTML inline キルスイッチを併用。
+
+      フロー:
+      1) HTML inline で全 SW を unregister + 全 caches を delete (旧 SW を即無効化)
+      2) localStorage 実行済フラグで 1 度だけ実行 (無限リロード防止)
+      3) キルスイッチ実行直後に reload → 自爆 SW (dist/sw.js) が新規 register される
+      4) 自爆 SW が activate で再度 caches を全削除 + self.registration.unregister
+      5) 次回以降は SW なし状態でネットワーク経由の最新版が動く
+
+      バージョン文字列は症状を踏むたびに更新 (r2, r3, ...) して再発時の救済を可能にする。
     -->
     <script>
       (function () {
         var KEY = 'pixels-sw-killswitch';
-        var DONE = '2026-05-07-r1';
+        var DONE = '2026-05-08-r2';
         try { if (localStorage.getItem(KEY) === DONE) return; } catch (e) { return; }
         var swPromise = ('serviceWorker' in navigator)
           ? navigator.serviceWorker.getRegistrations().then(function (regs) {
@@ -112,6 +119,21 @@
           window.location.reload();
         });
       })();
+
+      // 自爆 SW から PIXELS_SW_RESET メッセージを受信したら強制 reload (PWA standalone 救済)。
+      // セッション内で 1 度だけ。
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', function (event) {
+          if (event && event.data && event.data.type === 'PIXELS_SW_RESET') {
+            var FLAG = 'pixels-sw-reset-handled';
+            try {
+              if (sessionStorage.getItem(FLAG)) return;
+              sessionStorage.setItem(FLAG, '1');
+            } catch (e) {}
+            window.location.reload();
+          }
+        });
+      }
     </script>
 
     <!--
