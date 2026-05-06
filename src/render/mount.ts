@@ -36,12 +36,17 @@ export interface GameHandle {
 
 export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
   const app = new Application();
+  // 2026-05-08 / Gemini Pro deep 合議:
+  // ユーザー実機 (Android Chrome / iOS Safari) で「canvas 存在 / イベント発火 / 描画ゼロ」
+  // 症状を確認 (タッチ音は鳴るが盤面が出ない)。WebGPU をモバイル実機で要求すると一部端末で
+  // サイレントフェイルし、Pixi 側の WebGL fallback も発動しないケースがある。
+  // ピクセルパズル用途では WebGPU の利点が薄く WebGL2 互換性を優先する。
   await app.init({
     width: INITIAL_INTERNAL,
     height: INITIAL_INTERNAL,
     backgroundColor: 0x101010,
     antialias: false,
-    preference: 'webgpu',
+    preference: 'webgl', // モバイル互換性最優先 (WebGPU は廃止)
     roundPixels: true,
   });
   container.appendChild(app.canvas);

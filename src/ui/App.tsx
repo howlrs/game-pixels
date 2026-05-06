@@ -41,6 +41,7 @@ import { loadPuzzle as loadPuzzleData } from '@core/index.ts';
 import { useGame } from '@game/index.ts';
 import type { GameHandle } from '@render/index.ts';
 import { ClearBanner } from './ClearBanner.tsx';
+import { DebugHud } from './DebugHud.tsx';
 import { GameView } from './GameView.tsx';
 import { Hud } from './Hud.tsx';
 import { ModeButtons } from './ModeButtons.tsx';
@@ -226,6 +227,7 @@ export function App() {
           isNewBest={lastClearWasNewBestRef.current}
         />
       </div>
+      <DebugHud />
     </>
   );
 }
