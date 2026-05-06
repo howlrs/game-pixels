@@ -36,12 +36,17 @@ export interface GameHandle {
 
 export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
   const app = new Application();
+  // 2026-05-08 / Gemini Pro deep 合議:
+  // ユーザー実機 (Android Chrome / iOS Safari) で「canvas 存在 / イベント発火 / 描画ゼロ」
+  // 症状を確認 (タッチ音は鳴るが盤面が出ない)。WebGPU をモバイル実機で要求すると一部端末で
+  // サイレントフェイルし、Pixi 側の WebGL fallback も発動しないケースがある。
+  // ピクセルパズル用途では WebGPU の利点が薄く WebGL2 互換性を優先する。
   await app.init({
     width: INITIAL_INTERNAL,
     height: INITIAL_INTERNAL,
     backgroundColor: 0x101010,
     antialias: false,
-    preference: 'webgpu',
+    preference: 'webgl', // モバイル互換性最優先 (WebGPU は廃止)
     roundPixels: true,
   });
   container.appendChild(app.canvas);
@@ -82,16 +87,23 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
     applyViewport();
   };
   const unsub = useGame.subscribe((next, prev) => {
-    // β10.0-α: viewport-only 変化なら再描画せず viewport だけ更新 (高頻度の wheel/pinch 対策)
-    if (
-      next.viewport !== prev.viewport &&
-      next.board === prev.board &&
-      next.marks === prev.marks &&
-      next.cursor === prev.cursor &&
-      next.phase === prev.phase &&
-      next.currentPuzzle === prev.currentPuzzle
-    ) {
-      applyViewport();
+    // 2026-05-07 / Gemini Pro deep 合議: 描画関連 state がいずれも未変化なら何もしない。
+    // 旧コードは「viewport だけ変わった時の早期 return」しかなく、tickTimer による
+    // elapsedMs の毎フレーム更新で subscribe が発火 → redraw() に到達 → grid.ts の
+    // clear() が全 Container を destroy → 再生成する → GC スパイクと Pixi auto render の
+    // タイミング競合で「黒と黒に近い色で点滅」する症状を引き起こしていた。
+    //
+    // 修正: 描画影響のある board / marks / cursor / phase / currentPuzzle / viewport の
+    // どれも変化していなければ no-op。viewport だけ変わった時は applyViewport のみ。
+    const drawableChanged =
+      next.board !== prev.board ||
+      next.marks !== prev.marks ||
+      next.cursor !== prev.cursor ||
+      next.phase !== prev.phase ||
+      next.currentPuzzle !== prev.currentPuzzle;
+    if (!drawableChanged) {
+      if (next.viewport !== prev.viewport) applyViewport();
+      // それ以外 (elapsedMs / mode / drag / history 等) は描画影響なし → no-op
       return;
     }
     redraw();
@@ -112,8 +124,17 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
     observer.observe(document.body, { attributes: true, attributeFilter: ['data-high-contrast'] });
   }
 
-  // タイマー (rAF で経過時間を加算)
+  // タイマー (rAF で経過時間を加算)。
+  // 2026-05-08: 120Hz / 高 fps ディスプレイ対策 (ユーザー指摘)。
+  // 旧コードは app.ticker (rAF ベース) で毎フレーム tickTimer を呼んでいた。
+  // 60Hz では 16.6ms 間隔だが 120Hz 端末では 8.3ms 間隔となり、tickTimer の
+  // store set が 120 回/秒走り、subscribe コールバック数や React selector 評価が
+  // 倍増する。Round 7-A 系のコンポジタバグ顕在化や CPU/GPU 競合の遠因になりうる。
+  // 対策: 約 60Hz (16ms) を最小間隔として throttle。経過時間 (elapsedMs) は
+  // throttle で実時間が積算されるため計時精度には影響しない。
   let tickerStart: number | null = null;
+  let tickerAccumDt = 0;
+  const TICK_FLUSH_MS = 16; // ≈ 60Hz cap
   app.ticker.add(() => {
     const now = performance.now();
     if (tickerStart === null) {
@@ -122,7 +143,12 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
     }
     const dt = now - tickerStart;
     tickerStart = now;
-    useGame.getState().tickTimer(dt);
+    tickerAccumDt += dt;
+    if (tickerAccumDt >= TICK_FLUSH_MS) {
+      const flushed = tickerAccumDt;
+      tickerAccumDt = 0;
+      useGame.getState().tickTimer(flushed);
+    }
   });
 
   const rendererName =

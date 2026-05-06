@@ -14,6 +14,16 @@
 // Round 7-B: クリア時のセル回転アニメ (波状) をアニメ完了で results 遷移に統一。
 // 旧 ClearOverlay (1.5 秒タイマー) は廃止 (アニメ自体が祝福演出を兼ねる)。
 // 控えめな祝福バナー (ClearBanner) を盤面上部に表示してメッセージ性を残す。
+//
+// 2026-05-06 / モバイル描画バグ対策 (Round 7-A 知見の全 phase 拡張、Gemini Pro deep 合議):
+// Android Chrome 実機で puzzle 直接 URL アクセス時、PuzzleSelect が DOM から外れる遷移と
+// Pixi.js (WebGPU) 起動が同タイミングで発生し、コンポジタが PuzzleSelect の前回フレームを
+// 画面に張り付けたまま canvas 描画を停止する症状を確認 (Round 7-A の Android 版)。
+// 対策:
+//   1. GameView だけでなく TapToStartGate / PuzzleSelect / ResumeGate / ClearBanner /
+//      ResultsPage も常時マウントし、ラッパ div の display で見せ消えする
+//   2. GameView の mountPixi を 2 frame 遅延させ DOM レイアウト確定後に WebGPU を起動
+//      (詳細は GameView.tsx 内コメント)
 
 import { useCallback, useEffect, useRef } from 'react';
 import { mountVisibilityHandler } from '@platform/visibility.ts';
@@ -31,6 +41,7 @@ import { loadPuzzle as loadPuzzleData } from '@core/index.ts';
 import { useGame } from '@game/index.ts';
 import type { GameHandle } from '@render/index.ts';
 import { ClearBanner } from './ClearBanner.tsx';
+import { DebugHud } from './DebugHud.tsx';
 import { GameView } from './GameView.tsx';
 import { Hud } from './Hud.tsx';
 import { ModeButtons } from './ModeButtons.tsx';
@@ -41,19 +52,22 @@ import { TapToStartGate } from './TapToStartGate.tsx';
 
 // β12.0-β: 初回 render の前 (モジュール load 直後) に URL を解析して
 // 初期 phase を上書きする (TapToStartGate のチラつき防止)。
-// パズル個別 URL の場合、loadPuzzle が完了するまで一時的な空白を見せる代わりに
-// puzzle-select を先出しすると遷移後にもう一度切り替わって不安定なため、
-// puzzle 直接アクセス時は 'puzzle-select' をスキップして直接 'playing' (board は空) で
-// loadPuzzle 完了を待つ。
+//
+// 2026-05-06 / モバイル描画バグ対策 (Gemini Pro deep 合議):
+// puzzle 直接 URL の場合、以前は一旦 'puzzle-select' を経由してから 'playing' に遷移していたが、
+// この PuzzleSelect マウント→アンマウント遷移と Pixi.js (WebGPU) 起動が同タイミングで走り、
+// Android Chrome のコンポジタが PuzzleSelect の前回フレームを画面に張り付けたままにする
+// 描画バグを誘発していた。対策として puzzle 直接 URL は 'puzzle-select' をスキップし、
+// 直接 'playing' (board は空) で loadPuzzle 完了を待つ。
 const INITIAL_TARGET = parsePath(getInitialPath());
 if (INITIAL_TARGET.kind === 'puzzles-index' || INITIAL_TARGET.kind === 'category-index') {
   useGame.setState({ phase: 'puzzle-select' });
 } else if (INITIAL_TARGET.kind === 'puzzle') {
-  // 一旦 'puzzle-select' に置いておき、loadPuzzle 完了後に 'playing' に遷移する。
-  // (TapToStartGate を出さないことが重要。puzzle-select は loadPuzzle 完了するまで一瞬見えるが
-  //  目的のパズル URL に来た訳なのでむしろ自然なフォールバック。
-  //  loadPuzzle.then で 'playing' に切り替わる。)
-  useGame.setState({ phase: 'puzzle-select' });
+  // puzzle 直接 URL: PuzzleSelect を経由せず playing で起動。
+  // currentPuzzle = null のまま GameView がマウントされるが、mountPixi の初期描画は
+  // currentPuzzle が null なら no-op (render/mount.ts ensureResolution)。
+  // loadPuzzle 完了で store が phase='playing' を再 set + 盤面が描画される。
+  useGame.setState({ phase: 'playing' });
 }
 // else: kind === 'top' → 既定の 'tap-to-start' のまま
 
@@ -109,8 +123,11 @@ export function App() {
   }, []);
 
   // β12.0-α / β12.0-β: 起動時に URL を読んで該当パズルを直接ロード (SSG prerender 経由)。
-  // 初期 phase はモジュールトップで既に設定済み。ここでは puzzle 直接アクセス時のみ fetch を kick する。
-  // 失敗時 (puzzle 不在等) は puzzle-select のまま (ユーザーが他のパズルを選べる)。
+  // 初期 phase はモジュールトップで既に設定済み (puzzle 直接 URL → 'playing')。
+  // 2026-05-06 / Gemini Pro deep 指摘: 失敗時 (puzzle 不在等) は puzzle-select にフォールバック。
+  // 新しい初期 phase が 'playing' なので、失敗を検知して明示的に戻す必要がある。
+  // URL は /puzzles/<cat>/<id>/ のままだと戻る/再読み込み時に同じ失敗を繰り返すため、
+  // history.replaceState で /puzzles/ に書き換える (history を汚さず一覧側に固定)。
   useEffect(() => {
     if (INITIAL_TARGET.kind !== 'puzzle') return;
     const url = `/puzzles/${INITIAL_TARGET.category}/${INITIAL_TARGET.id}.json`;
@@ -120,7 +137,10 @@ export function App() {
       })
       .catch((e) => {
         console.warn('[router] puzzle direct load failed', e);
-        // フォールバック: puzzle-select (既に setState 済) のまま
+        useGame.setState({ phase: 'puzzle-select' });
+        if (typeof window !== 'undefined') {
+          window.history.replaceState({}, '', '/puzzles/');
+        }
       });
   }, []);
 
@@ -173,7 +193,14 @@ export function App() {
 
   // 旧来の null マウント/アンマウントは Windows Chrome WebGPU で空白バグを引き起こすため、
   // GameView / Hud / ModeButtons は常時マウントし、display:none で見せ消えする。
+  // 2026-05-06: 同様の症状を Android Chrome 実機でも puzzle 直接URL アクセス時に確認。
+  // 対策として全 phase コンポーネントを常時マウント化 (Gemini Pro deep 合議)。
   const showGameView = phase === 'playing' || phase === 'paused' || phase === 'cleared';
+  const showTapToStart = phase === 'tap-to-start';
+  const showPuzzleSelect = phase === 'puzzle-select';
+  const showResume = phase === 'paused';
+  const showClearBanner = phase === 'cleared';
+  const showResults = phase === 'results';
 
   return (
     <>
@@ -182,16 +209,25 @@ export function App() {
         <Hud />
         <ModeButtons />
       </div>
-      {phase === 'tap-to-start' ? <TapToStartGate onStart={handleStart} /> : null}
-      {phase === 'puzzle-select' ? <PuzzleSelect onLoaded={handlePuzzleLoaded} /> : null}
-      {phase === 'paused' ? <ResumeGate /> : null}
-      {phase === 'cleared' ? <ClearBanner /> : null}
-      {phase === 'results' ? (
+      <div style={{ display: showTapToStart ? 'block' : 'none' }} aria-hidden={!showTapToStart}>
+        <TapToStartGate onStart={handleStart} />
+      </div>
+      <div style={{ display: showPuzzleSelect ? 'block' : 'none' }} aria-hidden={!showPuzzleSelect}>
+        <PuzzleSelect onLoaded={handlePuzzleLoaded} />
+      </div>
+      <div style={{ display: showResume ? 'block' : 'none' }} aria-hidden={!showResume}>
+        <ResumeGate />
+      </div>
+      <div style={{ display: showClearBanner ? 'block' : 'none' }} aria-hidden={!showClearBanner}>
+        <ClearBanner />
+      </div>
+      <div style={{ display: showResults ? 'block' : 'none' }} aria-hidden={!showResults}>
         <ResultsPage
           onReturnToSelect={handleReturnToSelect}
           isNewBest={lastClearWasNewBestRef.current}
         />
-      ) : null}
+      </div>
+      <DebugHud />
     </>
   );
 }

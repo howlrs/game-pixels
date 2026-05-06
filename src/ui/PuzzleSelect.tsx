@@ -2,9 +2,21 @@
 //
 // β6.0-β: クリア済マーク (✓ + ベストタイム) と カテゴリ毎の進捗 (5/8 等) を表示。
 // ResultsPage と同じ getSavedData().clearRecords を参照する DRY 設計。
+//
+// 2026-05-06: モバイル描画バグ対策で常時マウント方針に変更 (Round 7-A 拡張)。
+// 親 (App.tsx) が display:none / block で見せ消えするため、本コンポーネントは self-mount
+// 状態を意識しない。clearRecords は phase 変化時に再計算 (results→puzzle-select 戻りで
+// クリアマーク ✓ が確実に反映されるよう)。
 
 import { useEffect, useMemo, useState } from 'react';
-import { formatTime, loadPuzzle, loadPuzzleIndex, type PuzzleIndex, type PuzzleMeta } from '@core/index.ts';
+import {
+  formatTime,
+  loadPuzzle,
+  loadPuzzleIndex,
+  type PuzzleClearRecord,
+  type PuzzleIndex,
+  type PuzzleMeta,
+} from '@core/index.ts';
 import { useGame } from '@game/index.ts';
 import { getSavedData } from '@save/index.ts';
 import { Footer } from './Footer.tsx';
@@ -13,14 +25,24 @@ interface Props {
   onLoaded: () => void;
 }
 
+// 2026-05-06: 非表示時の不要な再レンダリング防止のため空オブジェクトの参照を固定
+// (Gemini Pro deep 指摘)。新しい {} を毎回返すと React の Object.is 比較で常に違う参照と
+// 判断され、隠れた PuzzleSelect が無駄に再レンダリングされる。
+const EMPTY_CLEAR_RECORDS: Record<string, PuzzleClearRecord> = {};
+
 export function PuzzleSelect({ onLoaded }: Props) {
   const [index, setIndex] = useState<PuzzleIndex | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const phase = useGame((s) => s.phase);
 
-  // β6.0-β: SavedData は本画面マウント時の値を読み (描画中の変化は autoSave の debounce 後に反映)
-  // ここでは初回 + 画面切替時のみで十分なので useMemo で安定化
-  const clearRecords = useMemo(() => getSavedData()?.clearRecords ?? {}, []);
+  // β6.0-β: SavedData は本画面表示時 (phase=puzzle-select 入った瞬間) の値で安定化。
+  // 2026-05-06: 常時マウント化に伴い phase 依存にして results→puzzle-select 戻り時に
+  // クリアマーク (✓) を確実に再評価できるようにする。
+  const clearRecords = useMemo(() => {
+    if (phase !== 'puzzle-select') return EMPTY_CLEAR_RECORDS;
+    return getSavedData()?.clearRecords ?? EMPTY_CLEAR_RECORDS;
+  }, [phase]);
 
   useEffect(() => {
     loadPuzzleIndex('/puzzles/index.json')

@@ -22,13 +22,15 @@
 # ---- Service Worker: キャッシュ禁止 (Cloudflare のデフォルトを上書き) ----
 # §14.10 で sw.js は precache のオーケストレーター。古い sw.js が CDN に固定されると
 # 永久に新しいデプロイへ更新されないため、必ず no-store で配信する。
+# 2026-05-08: 旧 SW 詰みパターン対策のため no-cache, no-store で確実に CDN/ブラウザ
+# どちらでもキャッシュしない指定に変更 (Gemini Pro deep 推奨)。
 /sw.js
-  Cache-Control: public, max-age=0, must-revalidate
+  Cache-Control: no-cache, no-store, must-revalidate
   Service-Worker-Allowed: /
 /registerSW.js
-  Cache-Control: public, max-age=0, must-revalidate
+  Cache-Control: no-cache, no-store, must-revalidate
 /workbox-*.js
-  Cache-Control: public, max-age=0, must-revalidate
+  Cache-Control: no-cache, no-store, must-revalidate
 
 # ---- ハッシュ付きアセット: immutable で長期キャッシュ (Vite が hashed filename を生成) ----
 /assets/*
