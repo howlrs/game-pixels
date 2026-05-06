@@ -1,7 +1,7 @@
 // Round 7-E / Gemini Pro deep 指摘 5: SIZES / META / ID_ORDER を単一ファイルに集約。
 // build-puzzles.mjs / build-index.mjs の双方から import される。
 
-export const SIZES = ['10x10', '15x15', '25x25'];
+export const SIZES = ['5x5', '10x10', '15x15', '25x25'];
 export const SIZE_ORDER = ['5x5', '10x10', '15x15', '25x25'];
 
 // カテゴリ内の表示順 (難易度・好みで人手調整)
@@ -14,8 +14,10 @@ export const ID_ORDER = {
 
 // id → メタ (build-puzzles.mjs の image-to-puzzle 起動引数として使用)
 export const META = {
-  // 5x5 (既存、build-puzzles では使わないが index 用に残す)
-  // (既に手動で生成済 + estimatedSolveSeconds が独自値のため META 対象外)
+  // 5x5
+  heart: { title: 'ハート', difficulty: 'easy', description: 'シンプルなハートマーク' },
+  diamond: { title: 'ダイヤ', difficulty: 'easy', description: 'ひし形 (ダイヤモンド)' },
+  cross: { title: 'プラス', difficulty: 'easy', description: 'プラス記号 (十字)' },
 
   // 10x10
   cat: { title: 'ねこ', difficulty: 'medium', description: '猫の顔' },
@@ -41,6 +43,7 @@ export const META = {
 };
 
 export function durationFor(size) {
+  if (size === '5x5') return 60;
   if (size === '10x10') return 600;
   if (size === '15x15') return 1200;
   if (size === '25x25') return 2400;
