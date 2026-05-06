@@ -24,7 +24,12 @@ import { SettingsModal } from './SettingsModal.tsx';
 
 export function Hud() {
   const phase = useGame((s) => s.phase);
-  const elapsed = useGame((s) => s.elapsedMs);
+  // 2026-05-07: 秒単位の selector に変えて 1Hz 再レンダに抑える (Gemini Pro deep 指摘)。
+  // 旧: useGame((s) => s.elapsedMs) → Pixi.js ticker が毎フレーム elapsedMs 更新 →
+  // 60Hz で Hud が React 再レンダ → メインスレッド圧迫で canvas 描画と競合し点滅。
+  // 表示は formatTime で MM:SS 形式 (秒単位丸め) なので秒単位 selector で十分。
+  const elapsedSec = useGame((s) => Math.floor(s.elapsedMs / 1000));
+  const elapsed = elapsedSec * 1000;
   const puzzle = useGame((s) => s.currentPuzzle);
   const board = useGame((s) => s.board);
   const reset = useGame((s) => s.resetBoard);

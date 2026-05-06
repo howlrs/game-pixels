@@ -82,16 +82,23 @@ export async function mountPixi(container: HTMLElement): Promise<GameHandle> {
     applyViewport();
   };
   const unsub = useGame.subscribe((next, prev) => {
-    // β10.0-α: viewport-only 変化なら再描画せず viewport だけ更新 (高頻度の wheel/pinch 対策)
-    if (
-      next.viewport !== prev.viewport &&
-      next.board === prev.board &&
-      next.marks === prev.marks &&
-      next.cursor === prev.cursor &&
-      next.phase === prev.phase &&
-      next.currentPuzzle === prev.currentPuzzle
-    ) {
-      applyViewport();
+    // 2026-05-07 / Gemini Pro deep 合議: 描画関連 state がいずれも未変化なら何もしない。
+    // 旧コードは「viewport だけ変わった時の早期 return」しかなく、tickTimer による
+    // elapsedMs の毎フレーム更新で subscribe が発火 → redraw() に到達 → grid.ts の
+    // clear() が全 Container を destroy → 再生成する → GC スパイクと Pixi auto render の
+    // タイミング競合で「黒と黒に近い色で点滅」する症状を引き起こしていた。
+    //
+    // 修正: 描画影響のある board / marks / cursor / phase / currentPuzzle / viewport の
+    // どれも変化していなければ no-op。viewport だけ変わった時は applyViewport のみ。
+    const drawableChanged =
+      next.board !== prev.board ||
+      next.marks !== prev.marks ||
+      next.cursor !== prev.cursor ||
+      next.phase !== prev.phase ||
+      next.currentPuzzle !== prev.currentPuzzle;
+    if (!drawableChanged) {
+      if (next.viewport !== prev.viewport) applyViewport();
+      // それ以外 (elapsedMs / mode / drag / history 等) は描画影響なし → no-op
       return;
     }
     redraw();
