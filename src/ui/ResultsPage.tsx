@@ -118,6 +118,7 @@ export function ResultsPage({ onReturnToSelect, isNewBest }: Props) {
   }
 
   // Round 7-A / Gemini Pro 指摘: 非同期 fetch は cancelled フラグで race condition 回避
+  // 2026-05-06: 常時マウント方針 (親 div で display 制御) のため phase ガードは内部に残す
   useEffect(() => {
     if (phase !== 'results') return;
     let cancelled = false;
@@ -144,7 +145,12 @@ export function ResultsPage({ onReturnToSelect, isNewBest }: Props) {
     return () => cancelAnimationFrame(raf);
   }, [phase]);
 
-  if (phase !== 'results' || !puzzle) return null;
+  // 2026-05-06: 常時マウント方針。puzzle 未ロード時のみ空 DOM を返す。
+  // 親 (App.tsx) が phase !== 'results' のとき display:none で隠すので、
+  // ここで null/早期 return すると DOM ノードが消えコンポジタバグの再発要因になる。
+  if (!puzzle) {
+    return <div className="results-page" aria-hidden="true" />;
+  }
 
   const savedData = getSavedData();
   const bestRecord = savedData.clearRecords[puzzle.meta.id];
