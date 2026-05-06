@@ -8,7 +8,7 @@ export const SIZE_ORDER = ['5x5', '10x10', '15x15', '25x25'];
 export const ID_ORDER = {
   '5x5': ['heart', 'diamond', 'cross', 'arrow-up', 'smile', 'star-mini', 'triangle-up', 'key', 'bolt', 'letter-x', 'square', 'note', 'sun', 'cloud', 'umbrella-mini', 'fish-mini', 'leaf'],
   '10x10': ['cat', 'house', 'star', 'mushroom', 'heart-big', 'umbrella', 'rocket', 'tree', 'apple-mini', 'car', 'flower', 'cup', 'moon', 'bird', 'clock', 'bread', 'bus', 'pencil', 'fish-10', 'donut'],
-  '15x15': ['apple', 'rabbit', 'fish', 'giraffe', 'elephant', 'crab', 'snail', 'train', 'cake', 'penguin', 'boat', 'panda', 'guitar'],
+  '15x15': ['apple', 'rabbit', 'fish', 'giraffe', 'elephant', 'crab', 'snail', 'train', 'cake', 'penguin', 'boat', 'panda', 'guitar', 'airplane', 'octopus', 'crown', 'flamingo', 'pizza', 'teddy'],
   '25x25': ['butterfly', 'castle', 'dragon', 'lighthouse', 'whale', 'phoenix', 'mountain', 'lion', 'train-big', 'unicorn', 'tree-big'],
 };
 
@@ -68,6 +68,12 @@ export const META = {
   boat: { title: 'ふね', difficulty: 'hard', description: 'ヨット' },
   panda: { title: 'パンダ', difficulty: 'hard', description: 'パンダの顔' },
   guitar: { title: 'ギター', difficulty: 'hard', description: 'アコースティックギター' },
+  airplane: { title: 'ひこうき', difficulty: 'hard', description: '横向きの飛行機' },
+  octopus: { title: 'たこ', difficulty: 'hard', description: '8 本足のたこ' },
+  crown: { title: 'おうかん', difficulty: 'hard', description: '王冠' },
+  flamingo: { title: 'フラミンゴ', difficulty: 'hard', description: 'フラミンゴ' },
+  pizza: { title: 'ピザ', difficulty: 'hard', description: 'ホールピザ' },
+  teddy: { title: 'テディベア', difficulty: 'hard', description: 'テディベアの顔' },
   // 25x25
   dragon: { title: 'ドラゴン', difficulty: 'hard', description: '伝説のドラゴン' },
   castle: { title: 'しろ', difficulty: 'hard', description: '王城のシルエット' },

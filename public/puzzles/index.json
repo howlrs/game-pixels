@@ -507,6 +507,66 @@
       "description": "アコースティックギター"
     },
     {
+      "id": "airplane",
+      "title": "ひこうき",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "横向きの飛行機"
+    },
+    {
+      "id": "octopus",
+      "title": "たこ",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "8 本足のたこ"
+    },
+    {
+      "id": "crown",
+      "title": "おうかん",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "王冠"
+    },
+    {
+      "id": "flamingo",
+      "title": "フラミンゴ",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "フラミンゴ"
+    },
+    {
+      "id": "pizza",
+      "title": "ピザ",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "ホールピザ"
+    },
+    {
+      "id": "teddy",
+      "title": "テディベア",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "テディベアの顔"
+    },
+    {
       "id": "butterfly",
       "title": "ちょう",
       "width": 25,
