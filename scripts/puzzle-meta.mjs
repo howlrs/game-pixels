@@ -9,7 +9,7 @@ export const ID_ORDER = {
   '5x5': ['heart', 'diamond', 'cross', 'arrow-up', 'smile', 'star-mini', 'triangle-up', 'key', 'bolt', 'letter-x', 'square', 'note', 'sun', 'cloud', 'umbrella-mini', 'fish-mini', 'leaf'],
   '10x10': ['cat', 'house', 'star', 'mushroom', 'heart-big', 'umbrella', 'rocket', 'tree', 'apple-mini', 'car', 'flower', 'cup', 'moon', 'bird', 'clock', 'bread', 'bus', 'pencil', 'fish-10', 'donut'],
   '15x15': ['apple', 'rabbit', 'fish', 'giraffe', 'elephant', 'crab', 'snail', 'train', 'cake', 'penguin', 'boat', 'panda', 'guitar', 'airplane', 'octopus', 'crown', 'flamingo', 'pizza', 'teddy'],
-  '25x25': ['butterfly', 'castle', 'dragon', 'lighthouse', 'whale', 'phoenix', 'mountain', 'lion', 'train-big', 'unicorn', 'tree-big'],
+  '25x25': ['butterfly', 'castle', 'dragon', 'lighthouse', 'whale', 'phoenix', 'mountain', 'lion', 'train-big', 'unicorn', 'tree-big', 'tiger', 'temple', 'shark', 'samurai', 'spaceship', 'turtle', 'dolphin-big'],
 };
 
 // id → メタ (build-puzzles.mjs の image-to-puzzle 起動引数として使用)
@@ -86,6 +86,13 @@ export const META = {
   'train-big': { title: 'きしゃ', difficulty: 'hard', description: '大型蒸気機関車' },
   unicorn: { title: 'ユニコーン', difficulty: 'hard', description: 'ユニコーン' },
   'tree-big': { title: 'たいじゅ', difficulty: 'hard', description: '大樹' },
+  tiger: { title: 'トラ', difficulty: 'hard', description: 'トラの顔' },
+  temple: { title: 'じいん', difficulty: 'hard', description: '五重塔' },
+  shark: { title: 'サメ', difficulty: 'hard', description: '横向きのサメ' },
+  samurai: { title: 'さむらい', difficulty: 'hard', description: '兜のシルエット' },
+  spaceship: { title: 'うちゅうせん', difficulty: 'hard', description: '宇宙船' },
+  turtle: { title: 'カメ', difficulty: 'hard', description: 'カメ' },
+  'dolphin-big': { title: 'イルカ', difficulty: 'hard', description: 'ジャンプするイルカ' },
 };
 
 export function durationFor(size) {

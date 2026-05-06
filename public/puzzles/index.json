@@ -675,6 +675,76 @@
       "estimatedSolveSeconds": 3750,
       "category": "25x25",
       "description": "大樹"
+    },
+    {
+      "id": "tiger",
+      "title": "トラ",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "トラの顔"
+    },
+    {
+      "id": "temple",
+      "title": "じいん",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "五重塔"
+    },
+    {
+      "id": "shark",
+      "title": "サメ",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "横向きのサメ"
+    },
+    {
+      "id": "samurai",
+      "title": "さむらい",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "兜のシルエット"
+    },
+    {
+      "id": "spaceship",
+      "title": "うちゅうせん",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "宇宙船"
+    },
+    {
+      "id": "turtle",
+      "title": "カメ",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "カメ"
+    },
+    {
+      "id": "dolphin-big",
+      "title": "イルカ",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "ジャンプするイルカ"
     }
   ]
 }
