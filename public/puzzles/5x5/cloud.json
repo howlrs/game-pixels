@@ -1,0 +1,84 @@
+{
+  "meta": {
+    "id": "cloud",
+    "title": "くも",
+    "width": 5,
+    "height": 5,
+    "difficulty": "easy",
+    "estimatedSolveSeconds": 150,
+    "category": "5x5",
+    "description": "雲"
+  },
+  "solution": [
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "rowClues": [
+    [
+      0
+    ],
+    [
+      3
+    ],
+    [
+      5
+    ],
+    [
+      0
+    ],
+    [
+      0
+    ]
+  ],
+  "colClues": [
+    [
+      1
+    ],
+    [
+      2
+    ],
+    [
+      2
+    ],
+    [
+      2
+    ],
+    [
+      1
+    ]
+  ],
+  "isUniqueSolution": true
+}

@@ -1,0 +1,84 @@
+{
+  "meta": {
+    "id": "umbrella-mini",
+    "title": "かさ (小)",
+    "width": 5,
+    "height": 5,
+    "difficulty": "easy",
+    "estimatedSolveSeconds": 150,
+    "category": "5x5",
+    "description": "小さな傘"
+  },
+  "solution": [
+    [
+      0,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      0
+    ]
+  ],
+  "rowClues": [
+    [
+      3
+    ],
+    [
+      5
+    ],
+    [
+      1
+    ],
+    [
+      1
+    ],
+    [
+      1
+    ]
+  ],
+  "colClues": [
+    [
+      1
+    ],
+    [
+      2
+    ],
+    [
+      5
+    ],
+    [
+      2
+    ],
+    [
+      1
+    ]
+  ],
+  "isUniqueSolution": true
+}

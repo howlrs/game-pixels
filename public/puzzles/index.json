@@ -127,6 +127,56 @@
       "description": "音符"
     },
     {
+      "id": "sun",
+      "title": "たいよう",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "太陽"
+    },
+    {
+      "id": "cloud",
+      "title": "くも",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "雲"
+    },
+    {
+      "id": "umbrella-mini",
+      "title": "かさ (小)",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "小さな傘"
+    },
+    {
+      "id": "fish-mini",
+      "title": "さかな (小)",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "小さな魚"
+    },
+    {
+      "id": "leaf",
+      "title": "はっぱ",
+      "width": 5,
+      "height": 5,
+      "difficulty": "easy",
+      "estimatedSolveSeconds": 150,
+      "category": "5x5",
+      "description": "葉"
+    },
+    {
       "id": "cat",
       "title": "ねこ",
       "width": 10,
@@ -277,6 +327,56 @@
       "description": "時計"
     },
     {
+      "id": "bread",
+      "title": "パン",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "食パン"
+    },
+    {
+      "id": "bus",
+      "title": "バス",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "バス"
+    },
+    {
+      "id": "pencil",
+      "title": "えんぴつ",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "横向き鉛筆"
+    },
+    {
+      "id": "fish-10",
+      "title": "さかな (10)",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "10x10 サイズの魚"
+    },
+    {
+      "id": "donut",
+      "title": "ドーナツ",
+      "width": 10,
+      "height": 10,
+      "difficulty": "medium",
+      "estimatedSolveSeconds": 600,
+      "category": "10x10",
+      "description": "ドーナツ"
+    },
+    {
       "id": "apple",
       "title": "りんご",
       "width": 15,
@@ -407,6 +507,66 @@
       "description": "アコースティックギター"
     },
     {
+      "id": "airplane",
+      "title": "ひこうき",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "横向きの飛行機"
+    },
+    {
+      "id": "octopus",
+      "title": "たこ",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "8 本足のたこ"
+    },
+    {
+      "id": "crown",
+      "title": "おうかん",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "王冠"
+    },
+    {
+      "id": "flamingo",
+      "title": "フラミンゴ",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "フラミンゴ"
+    },
+    {
+      "id": "pizza",
+      "title": "ピザ",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "ホールピザ"
+    },
+    {
+      "id": "teddy",
+      "title": "テディベア",
+      "width": 15,
+      "height": 15,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 1350,
+      "category": "15x15",
+      "description": "テディベアの顔"
+    },
+    {
       "id": "butterfly",
       "title": "ちょう",
       "width": 25,
@@ -515,6 +675,76 @@
       "estimatedSolveSeconds": 3750,
       "category": "25x25",
       "description": "大樹"
+    },
+    {
+      "id": "tiger",
+      "title": "トラ",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "トラの顔"
+    },
+    {
+      "id": "temple",
+      "title": "じいん",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "五重塔"
+    },
+    {
+      "id": "shark",
+      "title": "サメ",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "横向きのサメ"
+    },
+    {
+      "id": "samurai",
+      "title": "さむらい",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "兜のシルエット"
+    },
+    {
+      "id": "spaceship",
+      "title": "うちゅうせん",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "宇宙船"
+    },
+    {
+      "id": "turtle",
+      "title": "カメ",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "カメ"
+    },
+    {
+      "id": "dolphin-big",
+      "title": "イルカ",
+      "width": 25,
+      "height": 25,
+      "difficulty": "hard",
+      "estimatedSolveSeconds": 3750,
+      "category": "25x25",
+      "description": "ジャンプするイルカ"
     }
   ]
 }
