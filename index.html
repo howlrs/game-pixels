@@ -82,6 +82,54 @@
 
     <!-- β12.0-α: 起動時に URL から puzzle/category を解析するためのヒント (build script で各パズル HTML に書き換え) -->
     <script>window.__PIXELS_INITIAL_PATH__ = "/";</script>
+
+    <!--
+      2026-05-07: 旧 Service Worker キャッシュキルスイッチ (Gemini Pro deep 合議)。
+      β12.0.2 までの SW がユーザー実機に残っていると、precache された旧 JS チャンクを
+      返し続けて canvas 内に旧 PuzzleSelect が張り付く / リロードでブラックアウトする
+      症状が報告された。各クライアントで 1 度だけ全 SW unregister + 全 caches.delete を
+      実行して強制再取得させる。localStorage で実行済フラグを管理し無限リロードを防ぐ。
+      新ビルドが届いた以降は pass-through (即 return) で常時オーバーヘッドなし。
+    -->
+    <script>
+      (function () {
+        var KEY = 'pixels-sw-killswitch';
+        var DONE = '2026-05-07-r1';
+        try { if (localStorage.getItem(KEY) === DONE) return; } catch (e) { return; }
+        var swPromise = ('serviceWorker' in navigator)
+          ? navigator.serviceWorker.getRegistrations().then(function (regs) {
+              return Promise.all(regs.map(function (r) { return r.unregister().catch(function () {}); }));
+            }).catch(function () {})
+          : Promise.resolve();
+        var cachePromise = ('caches' in window)
+          ? caches.keys().then(function (keys) {
+              return Promise.all(keys.map(function (k) { return caches.delete(k).catch(function () {}); }));
+            }).catch(function () {})
+          : Promise.resolve();
+        Promise.all([swPromise, cachePromise]).then(function () {
+          try { localStorage.setItem(KEY, DONE); } catch (e) {}
+          // 旧 JS chunk をまだ評価していないタイミングで reload するため defer 解除
+          window.location.reload();
+        });
+      })();
+    </script>
+
+    <!--
+      2026-05-07: Vite のチャンク読み込みエラー (旧 HTML が消えた旧 JS chunk を要求するなど)
+      を検知して 1 回だけ自動リロードでフォールバック。SW 入替直後の race を救済。
+      sessionStorage で回数管理 (上限 2 回)。
+    -->
+    <script>
+      window.addEventListener('vite:preloadError', function (event) {
+        try { event.preventDefault(); } catch (e) {}
+        var n = 0;
+        try { n = parseInt(sessionStorage.getItem('pixels-chunk-reload') || '0', 10) || 0; } catch (e) {}
+        if (n < 2) {
+          try { sessionStorage.setItem('pixels-chunk-reload', String(n + 1)); } catch (e) {}
+          window.location.reload();
+        }
+      });
+    </script>
     <style>
       :root {
         --safe-top: env(safe-area-inset-top, 0px);
