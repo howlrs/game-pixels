@@ -7,7 +7,7 @@ export const SIZE_ORDER = ['5x5', '10x10', '15x15', '25x25'];
 // カテゴリ内の表示順 (難易度・好みで人手調整)
 export const ID_ORDER = {
   '5x5': ['heart', 'diamond', 'cross', 'arrow-up', 'smile', 'star-mini', 'triangle-up', 'key', 'bolt', 'letter-x', 'square', 'note'],
-  '10x10': ['cat', 'house', 'star', 'mushroom', 'heart-big', 'umbrella', 'rocket', 'tree'],
+  '10x10': ['cat', 'house', 'star', 'mushroom', 'heart-big', 'umbrella', 'rocket', 'tree', 'apple-mini', 'car', 'flower', 'cup', 'moon', 'bird', 'clock'],
   '15x15': ['apple', 'rabbit', 'fish', 'giraffe', 'elephant', 'crab', 'snail'],
   '25x25': ['butterfly', 'castle', 'dragon'],
 };
@@ -37,6 +37,13 @@ export const META = {
   umbrella: { title: 'かさ', difficulty: 'medium', description: '雨傘' },
   rocket: { title: 'ロケット', difficulty: 'medium', description: '上向きロケット' },
   tree: { title: 'き', difficulty: 'medium', description: '針葉樹' },
+  'apple-mini': { title: 'りんご (小)', difficulty: 'medium', description: '小さなりんご' },
+  car: { title: 'くるま', difficulty: 'medium', description: '横向きの車' },
+  flower: { title: 'はな', difficulty: 'medium', description: 'チューリップ' },
+  cup: { title: 'カップ', difficulty: 'medium', description: 'マグカップ' },
+  moon: { title: 'つき', difficulty: 'medium', description: '三日月' },
+  bird: { title: 'とり', difficulty: 'medium', description: '小鳥' },
+  clock: { title: 'とけい', difficulty: 'medium', description: '時計' },
   // 15x15
   elephant: { title: 'ぞう', difficulty: 'hard', description: 'ぞうの正面' },
   giraffe: { title: 'きりん', difficulty: 'hard', description: '首が長いキリン' },
