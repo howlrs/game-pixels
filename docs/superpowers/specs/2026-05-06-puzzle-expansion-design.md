@@ -37,7 +37,7 @@ public/puzzles/index.json
    - `durationFor('5x5') = 60` を追加
 2. `tools/puzzle-specs/5x5/{heart,diamond,cross}.grid` を作成 (既存 JSON の solution から逆生成)
 3. `bun scripts/build-puzzles.mjs 5x5` で再生成 → `public/puzzles/5x5/*.json` が META 経由で再生成される
-   - 副作用: 既存 diamond の `estimatedSolveSeconds` 90→60 に統一 (差別化理由不明のため許容)
+   - 副作用: `image-to-puzzle.mjs` が `estimatedSolveSeconds = w*h*6` をハードコードしているため、5x5 全件は **150 秒** に統一される (heart 60→150 / diamond 90→150 / cross 60→150)。`durationFor('5x5')` は現在 import 元が無く dead code 気味だが META 一貫性のため追加する
 
 ### QA 基準 (`src/qa/index.ts`)
 
@@ -152,7 +152,7 @@ public/puzzles/index.json
 |---|---|
 | QA fail で再試行ループ化 | 候補を多めに確保 (5x5:12 / 10x10:15 / 15x15:13 / 25x25:11)。失敗は調整・再実行で解決 |
 | 25x25 の制作コストが高い | 既知パターン (左右対称シルエット + 太線輪郭) を踏襲 (`butterfly`/`castle` 参照) |
-| 5x5 既存 JSON の estimatedSolveSeconds が再生成で変わる | diamond 90→60 に統一 (許容) |
+| 5x5 既存 JSON の estimatedSolveSeconds が再生成で変わる | `image-to-puzzle.mjs` が `w*h*6` 固定のため 5x5 全件 150 秒に統一 (許容) |
 | `src/game/store.test.ts` の HEART fixture が壊れる | HEART は再生成しても solution/clues 不変 (5x5 ハートのビット配列は同一) |
 | `image-to-puzzle.mjs` の自動 flip が絵柄を崩す | flip マスを最小化する設定なので大崩れしない。fail 時は手書きを微調整 |
 
@@ -167,3 +167,46 @@ public/puzzles/index.json
 - `validate-puzzle.mjs` の最終 pass 件数 (例: `pass: 40 / fail: 0`)
 - 各サイズの最終件数 (5x5: N / 10x10: M / 15x15: K / 25x25: L)
 - 採用見送りした候補 id (もしあれば理由付き)
+
+---
+
+## 完了結果 (2026-05-06)
+
+### 採用件数 (各サイズ全候補が QA pass)
+
+| サイズ | 件数 | 内訳 |
+|---|---|---|
+| 5x5 | 12 | 既存 3 + 新規 9 (うち circle → triangle-up にスワップ、letter-x / smile は同 id で再設計) |
+| 10x10 | 15 | 既存 8 + 新規 7 (clock は同 id で再設計、original は pixelRatio=0.73 fail) |
+| 15x15 | 13 | 既存 7 + 新規 6 (panda は同 id で再設計、original は pixelRatio=0.78 fail) |
+| 25x25 | 11 | 既存 3 + 新規 8 (phoenix / lion は同 id で再設計) |
+| **合計** | **51** | 全件 `validate-puzzle.mjs` pass / 全件 `flips=0` (auto-flip 不要) |
+
+### スワップ・再設計の理由
+
+- **circle → triangle-up (5x5)**: ring 形状は対称性が高すぎて多解を持つ。3 回の調整 (ノッチ追加 / 中央点 / リング破断 + 追加セル) でも一意解にならず、階段状の上向き三角形に置換
+- **letter-x (5x5)**: 単セル対角線版が 5 components で fail。double-cell コーナー版に再設計 (`##.##/.###./..#../.###./##.##`)
+- **smile (5x5)**: bottom mouth `#...#/.###.` が ≥4 components で fail。`#####/.###.` に変更 (口幅広め)
+- **clock (10x10)**: 元設計が pixelRatio=0.73。auto-flip では非対称コーナーセルが付加されてしまうため、内部に時計の針 (短針・長針) を表す非対称パターンで再設計
+- **panda (15x15)**: 元設計が pixelRatio=0.78 (塗りすぎ)。頭・頬・体のホワイトスペースを増やして 0.70 に
+- **phoenix (25x25)**: 元設計が logicallySolvable=false (推測必要)。翼+頭+尾+脚構成で再設計 (脚の縦線が制約を増やし論理可解になる)
+- **lion (25x25)**: 元設計が pixelRatio=0.77。たてがみを薄く、内部のホワイトスペース増で 0.68 に
+
+### 検証結果
+
+```
+$ bun scripts/validate-puzzle.mjs
+... (51 puzzles)
+pass: 51 / fail: 0 / total: 51
+```
+
+```
+$ bun run typecheck     # exit 0
+$ bun test              # 119 pass / 0 fail / 13 files
+$ bun run build         # vite build + SSG
+✓ Generated 57 static HTML pages (Top + 5 hubs + 51 individual)
+✓ dist/sitemap.xml (57 URLs)
+```
+
+`vite preview` での新パズル URL アクセス確認 (HTTP 200):
+- `/puzzles/5x5/triangle-up/` / `/puzzles/10x10/clock/` / `/puzzles/15x15/panda/` / `/puzzles/25x25/phoenix/` / `/puzzles/25x25/unicorn/`
